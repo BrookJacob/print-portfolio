@@ -487,7 +487,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if(lightboxTitle) lightboxTitle.textContent = title || '';
         if(lightboxYear) lightboxYear.textContent = year || '';
-        if(lightboxDimensions) lightboxDimensions.textContent = dimensions || '';
+        if(lightboxDimensions) lightboxDimensions.textContent = size_w && size_h ? `${size_w} x ${size_h} inches` : '';
+        if(lightboxPrice) lightboxPrice.textContent = priceAttr || '';
         if(lightboxPrice) lightboxPrice.textContent = price || '';
         if(lightboxDescription) {
             lightboxDescription.textContent = description || '';
