@@ -235,49 +235,52 @@ print("Python setup complete. 'quantize_image_placeholder_py' is defined and rea
             outputImageEl.style.display = 'none';
 
             try {
-                // Get parameters
-                const numColors = parseInt(numColorsInput.value);
-                const windowSize = parseInt(windowSizeInput.value);
+    // Get parameters from HTML inputs
+    const numColors = parseInt(numColorsInput.value);
+    const windowSize = parseInt(windowSizeInput.value);
 
-                // Make image bytes and parameters available to Python
-                pyodide.globals.set("image_bytes_js", originalImageBytes);
-                pyodide.globals.set("num_colors_js", numColors);
-                pyodide.globals.set("window_size_js", windowSize);
+    // Make the JavaScript Uint8Array (originalImageBytes) and other parameters
+    // available to the Python snippet that will call your function.
+    // Pyodide will automatically convert simple JS types (numbers, strings)
+    // to their Python equivalents. JS Uint8Array will be a PyProxy.
+    pyodide.globals.set("js_image_bytes_for_python", originalImageBytes);
+    pyodide.globals.set("js_num_colors_for_python", numColors);
+    pyodide.globals.set("js_window_size_for_python", windowSize);
 
-                // Call the Python function (which was exposed in the textarea script)
-                // The Python function should return bytes of the processed image
-                let resultBytes = await pyodide.runPythonAsync(`
-                    quantize_image_placeholder_py(image_bytes_js, num_colors_js, window_size_js)
-                `);
+    // Call the Python function. The Python code string will retrieve the
+    // globals we just set and pass them to the Python function.
+    let resultBytesPyProxy = await pyodide.runPythonAsync(`
+        # Retrieve the values set by JavaScript
+        img_bytes_arg = pyodide.globals.get('js_image_bytes_for_python')
+        num_colors_arg = pyodide.globals.get('js_num_colors_for_python')
+        win_size_arg = pyodide.globals.get('js_window_size_for_python')
+        
+        # Call the globally defined Python function from the textarea code
+        quantize_image_placeholder_py(img_bytes_arg, num_colors_arg, win_size_arg)
+    `);
+    
+    if (resultBytesPyProxy) {
+        // Convert Python bytes (PyProxy) to JavaScript Uint8Array
+        const uint8Array = resultBytesPyProxy.toJs(); // Corrected line from previous discussion
 
-                if (resultBytesPyProxy) {
-                    // 1. Convert the Python bytes PyProxy to a JavaScript Uint8Array.
-                    // This is often a zero-copy view.
-                    const uint8Array = resultBytesPyProxy.toJs();
+        const blob = new Blob([uint8Array], { type: 'image/png' });
+        const imageUrl = URL.createObjectURL(blob);
+        outputImageEl.src = imageUrl;
+        outputImageEl.style.display = 'block';
+        statusDiv.textContent = "Quantization complete!";
 
-                    // 2. Create a Blob and Object URL as before.
-                    const blob = new Blob([uint8Array], { type: 'image/png' }); // Or appropriate image type
-                    const imageUrl = URL.createObjectURL(blob);
-                    outputImageEl.src = imageUrl;
-                    outputImageEl.style.display = 'block';
-                    statusDiv.textContent = "Quantization complete!";
+        // Clean up the PyProxy to free memory
+        if (typeof resultBytesPyProxy.destroy === 'function') {
+            resultBytesPyProxy.destroy();
+        }
+    } else {
+        statusDiv.textContent = "Quantization returned no data. Check console for Python errors.";
+    }
 
-                    // 3. Clean up the PyProxy (Important for memory management).
-                    // After you are done with the Uint8Array (e.g., after the blob is created
-                    // and URL used), destroy the PyProxy to free up memory on the Python side.
-                    if (resultBytesPyProxy && typeof resultBytesPyProxy.destroy === 'function') {
-                        resultBytesPyProxy.destroy();
-                    }
-                } else {
-                    statusDiv.textContent = "Quantization failed or returned no data. See console.";
-                }
-                // Clean up PyProxy if it's not automatically handled by toJs({ sở hữu_buffer: true })
-                // resultBytes.destroy(); // If resultBytes is a PyProxy and not destroyed by toJs
-
-            } catch (error) {
-                statusDiv.textContent = `Error during quantization: ${error}`;
-                console.error("Quantization JS error:", error);
-            }
+} catch (error) {
+    statusDiv.textContent = `JavaScript Error during quantization: ${error}`;
+    console.error("Quantization JS error:", error);
+}
         });
 
     </script>
