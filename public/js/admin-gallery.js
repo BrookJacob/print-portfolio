@@ -714,14 +714,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Footer Year ---
     if (currentYearSpan) currentYearSpan.textContent = new Date().getFullYear();
 
-    // --- Contact Form (Probably remove from admin page, but keep logic if needed) ---
-    // If you keep the contact form on admin.html, this logic is needed.
-    /*
-    if (contactForm && formStatus && submitButton) {
-         // ... same logic as in public script.js ...
-    }
-    */
-
     function generateThumbnail(file) {
         return new Promise((resolve, reject) => {
             if (!file || !file.type.startsWith('image/')) {
