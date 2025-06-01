@@ -339,7 +339,6 @@ header nav.main-navigation a:hover {
     /* Reduced padding slightly */
     border-radius: 5px;
     max-width: 90%;
-    max-height: 90vh;
     /* Overall limit */
     display: flex;
     flex-direction: column;
