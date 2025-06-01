@@ -73,6 +73,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const aboutTextarea = document.getElementById('about-text');
     const aboutStatus = document.getElementById('about-status');
 
+    const lightboxEditForm = document.getElementById('lightbox-edit-form');
+    const lightboxTitleDisplay = document.getElementById('lightbox-title-display');
+    const lightboxYearDisplay = document.getElementById('lightbox-year-display');
+    const lightboxDimensionsDisplay = document.getElementById('lightbox-dimensions-display');
+    const lightboxPriceDisplay = document.getElementById('lightbox-price-display');
+    const lightboxDescriptionDisplay = document.getElementById('lightbox-description-display');
+
+    const lightboxEditTitle = document.getElementById('lightbox-edit-title');
+    const lightboxEditYear = document.getElementById('lightbox-edit-year');
+    const lightboxEditOrder = document.getElementById('lightbox-edit-order');
+    const lightboxEditPrice = document.getElementById('lightbox-edit-price');
+    const lightboxEditSizeW = document.getElementById('lightbox-edit-size_w');
+    const lightboxEditSizeH = document.getElementById('lightbox-edit-size_h');
+    const lightboxEditDescription = document.getElementById('lightbox-edit-description');
+
+    const lightboxEditButton = document.getElementById('lightbox-edit-button');
+    const lightboxSaveButton = document.getElementById('lightbox-save-button');
+    const lightboxCancelEditButton = document.getElementById('lightbox-cancel-edit-button');
+    const lightboxEditStatus = document.getElementById('lightbox-edit-status');
+
     let generatedThumbnailBlob = null; // Will hold the Blob data
 
     // --- Masonry Variable ---
@@ -409,14 +429,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!imgElement || !lightbox) return;
 
         // Retrieve all necessary data from the img element
+        if (!imgElement || !lightbox) return;
+
         const docId = imgElement.getAttribute('data-doc-id');
         const fullSrc = imgElement.getAttribute('data-fullsrc');
-        const thumbSrc = imgElement.getAttribute('data-thumbsrc'); // Get thumb src
+        const thumbSrc = imgElement.getAttribute('data-thumbsrc');
         const title = imgElement.getAttribute('data-title');
         const year = imgElement.getAttribute('data-year');
-        const dimensions = imgElement.getAttribute('data-dimensions');
-        const price = imgElement.getAttribute('data-price');
+        const dimensionsAttr = imgElement.getAttribute('data-dimensions'); // e.g., "10 x 12 inches"
+        const priceAttr = imgElement.getAttribute('data-price'); // e.g., "$150" or "Inquire..."
         const description = imgElement.getAttribute('data-description');
+
+        // Extract numerical values if possible for form population
+        const order = imgElement.closest('.print-item')?.getAttribute('data-order-val') || ''; // Assuming you add data-order-val to print-item in createGalleryItem
+        const price = parseFloat(priceAttr?.replace('$', '')) || null;
+        let size_w = null, size_h = null;
+        if (dimensionsAttr && dimensionsAttr.includes('x')) {
+            const parts = dimensionsAttr.split('x').map(s => parseFloat(s.trim()));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                size_w = parts[0];
+                size_h = parts[1];
+            }
+        }
 
         if (!docId || !fullSrc || !thumbSrc) {
              console.error("Lightbox Error: Missing essential data attributes (doc-id, fullsrc, thumbsrc) on image element:", imgElement);
@@ -435,6 +469,15 @@ document.addEventListener('DOMContentLoaded', () => {
         lightbox.setAttribute('data-doc-id', docId);
         lightbox.setAttribute('data-fullsrc', fullSrc);
         lightbox.setAttribute('data-thumbsrc', thumbSrc);
+        // Store original data for comparison or reset if needed
+        lightbox.setAttribute('data-original-title', title);
+        lightbox.setAttribute('data-original-year', year);
+        lightbox.setAttribute('data-original-order', order);
+        lightbox.setAttribute('data-original-price', priceAttr); // Store original formatted price
+        lightbox.setAttribute('data-original-dimensions', dimensionsAttr); // Store original formatted dimensions
+        lightbox.setAttribute('data-original-description', description);
+        lightbox.setAttribute('data-original-size_w', size_w || '');
+        lightbox.setAttribute('data-original-size_h', size_h || '');
 
         // Populate lightbox display elements
         if(lightboxImg) {
@@ -450,6 +493,25 @@ document.addEventListener('DOMContentLoaded', () => {
             lightboxDescription.textContent = description || '';
             lightboxDescription.style.display = description ? 'block' : 'none';
         }
+        if(lightboxEditTitle) lightboxEditTitle.value = title || '';
+        if(lightboxEditYear) lightboxEditYear.value = year || '';
+        if(lightboxEditOrder) {
+            // Fetch 'order' from Firestore or pass it via data attribute if not already
+            // For now, assuming we might need to fetch it if not directly on imgElement
+            // Or, ensure 'order' is a data attribute on the image or its parent
+            const printItemElement = imgElement.closest('.print-item');
+            const orderVal = printItemElement ? printItemElement.dataset.orderVal : ''; // You'd add data-order-val in createGalleryItem
+             printsCollection.doc(docId).get().then(doc => {
+                if (doc.exists) {
+                    lightboxEditOrder.value = doc.data().order || '';
+                    lightbox.setAttribute('data-original-order', doc.data().order || '');
+                }
+            }).catch(err => console.error("Error fetching order for edit:", err));
+        }
+        if(lightboxEditPrice) lightboxEditPrice.value = price; // Use parsed numeric price
+        if(lightboxEditSizeW) lightboxEditSizeW.value = size_w || '';
+        if(lightboxEditSizeH) lightboxEditSizeH.value = size_h || '';
+        if(lightboxEditDescription) lightboxEditDescription.value = description || '';
 
         // Check current auth state to show/hide delete button
         const user = auth.currentUser;
@@ -459,6 +521,14 @@ document.addEventListener('DOMContentLoaded', () => {
             lightboxDeleteButton.disabled = false; // Ensure button is enabled initially
         }
         showStatus(lightboxDeleteStatus, null); // Clear any previous delete status
+
+        if (lightboxEditButton) lightboxEditButton.style.display = isAdmin ? 'inline-block' : 'none';
+        if (lightboxSaveButton) lightboxSaveButton.style.display = 'none'; // Hidden initially
+        if (lightboxCancelEditButton) lightboxCancelEditButton.style.display = 'none'; // Hidden initially
+        if (lightboxEditForm) lightboxEditForm.style.display = 'none'; // Form hidden initially
+        showStatus(lightboxEditStatus, null);
+
+        toggleEditMode(false);
 
         lightbox.classList.add('active');
         document.body.style.overflow = 'hidden';
@@ -474,7 +544,160 @@ document.addEventListener('DOMContentLoaded', () => {
         lightbox.removeAttribute('data-thumbsrc');
         // Hide status message
          showStatus(lightboxDeleteStatus, null);
+         showStatus(lightboxEditStatus, null);
+         if (lightboxEditForm) lightboxEditForm.style.display = 'none';
+         toggleEditMode(false);
     }
+
+    function toggleEditMode(isEditing) {
+        const displayElements = [lightboxTitleDisplay, lightboxYearDisplay, lightboxDimensionsDisplay, lightboxPriceDisplay, lightboxDescriptionDisplay];
+        const isAdmin = auth.currentUser && auth.currentUser.uid === ADMIN_UID;
+
+        if (isEditing) {
+            displayElements.forEach(el => { if (el) el.style.display = 'none'; });
+            if (lightboxEditForm) lightboxEditForm.style.display = 'block';
+            if (lightboxEditButton) lightboxEditButton.style.display = 'none';
+            if (lightboxSaveButton) lightboxSaveButton.style.display = isAdmin ? 'inline-block' : 'none';
+            if (lightboxCancelEditButton) lightboxCancelEditButton.style.display = isAdmin ? 'inline-block' : 'none';
+            if (lightboxDeleteButton) lightboxDeleteButton.style.display = 'none'; // Hide delete during edit
+        } else {
+            displayElements.forEach(el => { if (el) el.style.display = 'block'; });
+            if (lightboxEditForm) lightboxEditForm.style.display = 'none';
+            if (lightboxEditButton) lightboxEditButton.style.display = isAdmin ? 'inline-block' : 'none';
+            if (lightboxSaveButton) lightboxSaveButton.style.display = 'none';
+            if (lightboxCancelEditButton) lightboxCancelEditButton.style.display = 'none';
+            if (lightboxDeleteButton) lightboxDeleteButton.style.display = isAdmin ? 'inline-block' : 'none'; // Show delete if not editing
+        }
+    }
+
+    if (lightboxEditButton) {
+        lightboxEditButton.addEventListener('click', () => {
+            // Populate form with current display values (or re-fetch if necessary for fresh data)
+            // For simplicity, let's assume current lightbox attributes are sufficient
+            lightboxEditTitle.value = lightbox.getAttribute('data-original-title') || '';
+            lightboxEditYear.value = lightbox.getAttribute('data-original-year') || '';
+            lightboxEditOrder.value = lightbox.getAttribute('data-original-order') || '';
+            const priceAttr = lightbox.getAttribute('data-original-price');
+            lightboxEditPrice.value = priceAttr ? parseFloat(priceAttr.replace('$', '')) : '';
+            lightboxEditSizeW.value = lightbox.getAttribute('data-original-size_w') || '';
+            lightboxEditSizeH.value = lightbox.getAttribute('data-original-size_h') || '';
+            lightboxEditDescription.value = lightbox.getAttribute('data-original-description') || '';
+
+            toggleEditMode(true);
+        });
+    }
+
+    if (lightboxCancelEditButton) {
+        lightboxCancelEditButton.addEventListener('click', () => {
+            toggleEditMode(false);
+            showStatus(lightboxEditStatus, null); // Clear any status messages
+            // Form fields will be repopulated by openLightbox or if edit is clicked again
+        });
+    }
+
+    if (lightboxSaveButton) {
+        lightboxSaveButton.addEventListener('click', async () => {
+            const docId = lightbox.getAttribute('data-doc-id');
+            if (!docId) {
+                showStatus(lightboxEditStatus, "Error: No document ID found.", true);
+                return;
+            }
+
+            const user = auth.currentUser;
+            if (!user || user.uid !== ADMIN_UID) {
+                showStatus(lightboxEditStatus, "Error: Not authorized to save changes.", true);
+                return;
+            }
+
+            // Get new values from the form
+            const newTitle = lightboxEditTitle.value.trim();
+            const newYear = lightboxEditYear.value.trim() || null;
+            const newOrderStr = lightboxEditOrder.value.trim();
+            const newPriceStr = lightboxEditPrice.value.trim();
+            const newSizeWStr = lightboxEditSizeW.value.trim();
+            const newSizeHStr = lightboxEditSizeH.value.trim();
+            const newDescription = lightboxEditDescription.value.trim() || null;
+
+            if (!newTitle || newOrderStr === '') {
+                showStatus(lightboxEditStatus, "Error: Title and Order are required.", true);
+                return;
+            }
+
+            const newOrder = parseInt(newOrderStr, 10);
+            if (isNaN(newOrder)) {
+                showStatus(lightboxEditStatus, "Error: Order must be a valid number.", true);
+                return;
+            }
+            const newPrice = newPriceStr ? parseFloat(newPriceStr) : null;
+            if (newPriceStr && isNaN(newPrice)) {
+                showStatus(lightboxEditStatus, "Error: Price must be a valid number.", true);
+                return;
+            }
+            const newSizeW = newSizeWStr ? parseFloat(newSizeWStr) : null;
+            if (newSizeWStr && isNaN(newSizeW)) {
+                 showStatus(lightboxEditStatus, "Error: Width must be a valid number.", true); return;
+            }
+            const newSizeH = newSizeHStr ? parseFloat(newSizeHStr) : null;
+            if (newSizeHStr && isNaN(newSizeH)) {
+                 showStatus(lightboxEditStatus, "Error: Height must be a valid number.", true); return;
+            }
+
+
+            const updatedData = {
+                title: newTitle,
+                year: newYear,
+                order: newOrder,
+                price: newPrice,
+                size_w: newSizeW,
+                size_h: newSizeH,
+                description: newDescription,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp() // Add an update timestamp
+            };
+
+            lightboxSaveButton.disabled = true;
+            lightboxCancelEditButton.disabled = true;
+            showStatus(lightboxEditStatus, "Saving changes...", false);
+
+            try {
+                await printsCollection.doc(docId).update(updatedData);
+                showStatus(lightboxEditStatus, "Changes saved successfully!", false);
+
+                // Update the lightbox display elements and stored data attributes
+                lightboxTitleDisplay.textContent = newTitle;
+                lightboxYearDisplay.textContent = newYear || '';
+                const newDimensionsText = (newSizeW && newSizeH) ? `${newSizeW} x ${newSizeH} inches` : '';
+                const newPriceText = newPrice ? `$${newPrice.toFixed(2)}` : 'Inquire for price';
+                lightboxDimensionsDisplay.textContent = newDimensionsText;
+                lightboxPriceDisplay.textContent = newPriceText;
+                lightboxDescriptionDisplay.textContent = newDescription || '';
+                lightboxDescriptionDisplay.style.display = newDescription ? 'block' : 'none';
+
+                lightbox.setAttribute('data-original-title', newTitle);
+                lightbox.setAttribute('data-original-year', newYear || '');
+                lightbox.setAttribute('data-original-order', newOrder.toString());
+                lightbox.setAttribute('data-original-price', newPriceText);
+                lightbox.setAttribute('data-original-dimensions', newDimensionsText);
+                lightbox.setAttribute('data-original-description', newDescription || '');
+                lightbox.setAttribute('data-original-size_w', newSizeW || '');
+                lightbox.setAttribute('data-original-size_h', newSizeH || '');
+
+
+                setTimeout(async () => {
+                    toggleEditMode(false); // Switch back to display mode
+                    showStatus(lightboxEditStatus, null); // Clear status
+                    await loadGallery(); // Reload the main gallery to reflect changes
+                }, 1500);
+
+            } catch (error) {
+                console.error("Error updating print:", error);
+                showStatus(lightboxEditStatus, `Error saving: ${error.message}`, true);
+            } finally {
+                lightboxSaveButton.disabled = false;
+                lightboxCancelEditButton.disabled = false;
+            }
+        });
+    }
+
     if (lightboxCloseBtn) lightboxCloseBtn.addEventListener('click', closeLightbox);
     // Escape key and overlay click handled by general modal logic
 
