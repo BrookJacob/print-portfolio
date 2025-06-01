@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         img.setAttribute('data-year', printData.year || '');
         // Format dimensions and price
         const dimensions = (printData.size_w && printData.size_h) ? `${printData.size_w} x ${printData.size_h} inches` : '';
-        const price = printData.price ? `$${printData.price}` : 'Inquire for price';
+        const price = printData.price ? `$${printData.price}` : '';
         img.setAttribute('data-dimensions', dimensions);
         img.setAttribute('data-price', price);
         img.setAttribute('data-description', printData.description || '');
