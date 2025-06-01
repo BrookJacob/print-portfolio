@@ -1,23 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interactive Python Image Quantizer - Jacob Brook</title>
-    <link rel="stylesheet" href="../../css/style.css"> 
+    <link rel="stylesheet" href="../../css/style.css">
     <style>
         /* Article-specific styles */
-        body { font-family: sans-serif; padding: 20px; }
-        .interactive-area { margin-top: 20px; padding: 15px; border: 1px solid #ccc; }
-        #status { margin-top: 10px; font-style: italic; color: #555; }
-        #outputImageContainer { margin-top: 20px; border: 1px dashed #aaa; min-height: 200px; }
-        img { max-width: 100%; display: block; }
-        textarea { width: 100%; min-height: 150px; margin-bottom: 10px; }
-        button { padding: 8px 15px; margin-top: 10px; }
-        .controls label { display: block; margin-top: 10px; }
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        .interactive-area {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+        }
+
+        #status {
+            margin-top: 10px;
+            font-style: italic;
+            color: #555;
+        }
+
+        #outputImageContainer {
+            margin-top: 20px;
+            border: 1px dashed #aaa;
+            min-height: 200px;
+        }
+
+        img {
+            max-width: 100%;
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 8px 15px;
+            margin-top: 10px;
+        }
+
+        .controls label {
+            display: block;
+            margin-top: 10px;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
 </head>
+
 <body>
     <header>
         <div class="header-container">
@@ -36,71 +73,83 @@
     <main>
         <section class="article-content">
             <h2>Interactive Image Quantizer Demo (Python in Browser)</h2>
-            <p>The core functionality of the image quantizer is able to be run in the browser thanks to <a href="https://pyodide.org/">Pyodide</a>.</p>
+            <p>The core functionality of the image quantizer is able to be run in the browser thanks to <a
+                    href="https://pyodide.org/">Pyodide</a>.</p>
 
             <div class="interactive-area">
                 <h3>Try it Out!</h3>
-                
+
                 <div class="controls">
                     <label for="imageUpload">1. Upload an image:</label>
                     <input type="file" id="imageUpload" accept="image/*">
 
                     <label for="numColors">2. Number of Colors (K-Means):</label>
                     <input type="number" id="numColors" value="8" min="2" max="50">
-                    
+
                     <label for="windowSize">3. Window Size:</label>
                     <input type="number" id="windowSize" value="12" min="2" max="50">
-                    
+
                     <button id="quantizeButton">4. Quantize Image</button>
                 </div>
 
                 <div id="status">Pyodide Status: Not loaded yet.</div>
-                
+
                 <h4>Original Image:</h4>
                 <div id="originalImageContainer">
-                    <img id="originalImage" src="#" alt="Original will appear here" style="display:none;"/>
+                    <img id="originalImage" src="#" alt="Original will appear here" style="display:none;" />
                 </div>
 
                 <h4>Quantized Image:</h4>
                 <div id="outputImageContainer">
-                    <img id="outputImage" src="#" alt="Quantized image will appear here" style="display:none;"/>
+                    <img id="outputImage" src="#" alt="Quantized image will appear here" style="display:none;" />
                 </div>
 
                 <h4>Python Code to Run:</h4>
-                <p>For this demo, we'll adapt parts of your Python script. The full Tkinter GUI is replaced by this web page.</p>
+                <p>For this demo, we'll adapt parts of your Python script. The full Tkinter GUI is replaced by this web
+                    page.</p>
                 <textarea id="pythonCode" spellcheck="false">
-# Python code will be dynamically loaded here or you can paste parts of your script.
-# For now, we'll keep it simple.
-# Your quantize_image_with_window_sklearn and helper functions would go here.
+# Python code for textarea (e.g., within python_image_quantizer.html)
+from PIL import Image
+import io
+import numpy as np
+# import pyodide # Only needed if you want to call pyodide.globals.get() from within this initial script block
+                # For the function below, arguments are passed directly by the JS call.
 
-# Placeholder for the actual image processing functions
-def quantize_image_placeholder(image_bytes, num_colors_py, window_size_py):
-    from PIL import Image
-    import io
-    import numpy as np # Make sure numpy is loaded
-
-    # Simulate loading image from bytes
+# This is the Python function that JavaScript will call.
+# It expects a PyProxy to the JS Uint8Array for image_bytes_proxy,
+# and standard Python numbers for num_colors_py and window_size_py.
+def quantize_image_placeholder_py(image_bytes_proxy, num_colors_py, window_size_py):
+    # Convert the PyProxy of JavaScript's Uint8Array to Python bytes
+    # This is crucial for PIL to read the image data.
     try:
-        img = Image.open(io.BytesIO(image_bytes))
-        img = img.convert("RGB") # Ensure RGB
-        # Simulate some processing
+        python_image_bytes = image_bytes_proxy.to_py()
+    except Exception as e:
+        import js
+        js.console.error(f"Python Error: Failed to convert image_bytes_proxy to Python bytes: {str(e)}")
+        return None
+
+    try:
+        img = Image.open(io.BytesIO(python_image_bytes))
+        img = img.convert("RGB") # Ensure RGB for consistent processing
+
+        # Simulate some processing (e.g., your quantization logic would go here)
         output_img_array = np.array(img)
         # Example: Invert colors as a placeholder for quantization
         output_img_array = 255 - output_img_array
         processed_img = Image.fromarray(output_img_array.astype(np.uint8))
 
-        # Convert processed image back to bytes (e.g., PNG)
+        # Convert processed PIL Image object back to bytes to return to JavaScript
         output_buffer = io.BytesIO()
-        processed_img.save(output_buffer, format="PNG")
-        return output_buffer.getvalue()
+        processed_img.save(output_buffer, format="PNG") # Save as PNG bytes
+        return output_buffer.getvalue() # Returns Python bytes object
     except Exception as e:
-        print(f"Python error: {e}")
-        return None
+        # If an error occurs, print it to the JS console for debugging
+        import js
+        js.console.error(f"Python Error in quantize_image_placeholder_py: {str(e)}")
+        return None # Indicate failure
 
-# Important: Make the function available to JavaScript
-js_proxy = __import__("js")
-js_proxy.pyodide.globals.set("quantize_image_placeholder_py", quantize_image_placeholder)
-print("Python setup complete, quantize_image_placeholder_py is ready.")
+# This print confirms the Python script in the textarea has run and defined the function.
+print("Python setup complete. 'quantize_image_placeholder_py' is defined and ready.")
 
                 </textarea>
             </div>
@@ -123,7 +172,7 @@ print("Python setup complete, quantize_image_placeholder_py is ready.")
         const quantizeButton = document.getElementById('quantizeButton');
         const numColorsInput = document.getElementById('numColors');
         const windowSizeInput = document.getElementById('windowSize');
-        
+
         let pyodide = null;
         let originalImageBytes = null;
 
@@ -132,13 +181,13 @@ print("Python setup complete, quantize_image_placeholder_py is ready.")
             try {
                 pyodide = await loadPyodide();
                 statusDiv.textContent = 'Pyodide Status: Loaded. Loading packages...';
-                
+
                 // Load Python packages your code needs
                 // cv2 (OpenCV) is available as "opencv-python"
                 // sklearn is available as "scikit-learn"
-                await pyodide.loadPackage(['numpy', 'Pillow', 'scikit-learn']); 
+                await pyodide.loadPackage(['numpy', 'Pillow', 'scikit-learn']);
                 statusDiv.textContent = 'Pyodide Status: Packages loaded. Ready.';
-                
+
                 // Run initial Python setup code from textarea
                 // (this makes quantize_image_placeholder_py available)
                 await pyodide.runPythonAsync(pythonCodeTextarea.value);
@@ -200,17 +249,27 @@ print("Python setup complete, quantize_image_placeholder_py is ready.")
                 let resultBytes = await pyodide.runPythonAsync(`
                     quantize_image_placeholder_py(image_bytes_js, num_colors_js, window_size_js)
                 `);
-                
-                if (resultBytes) {
-                    // Convert Python bytes (PyProxy) to JavaScript Uint8Array, then Blob
-                    const uint8Array = resultBytesPyProxy.toJs() // Transfer ownership
-                    const blob = new Blob([uint8Array], { type: 'image/png' });
+
+                if (resultBytesPyProxy) {
+                    // 1. Convert the Python bytes PyProxy to a JavaScript Uint8Array.
+                    // This is often a zero-copy view.
+                    const uint8Array = resultBytesPyProxy.toJs();
+
+                    // 2. Create a Blob and Object URL as before.
+                    const blob = new Blob([uint8Array], { type: 'image/png' }); // Or appropriate image type
                     const imageUrl = URL.createObjectURL(blob);
                     outputImageEl.src = imageUrl;
                     outputImageEl.style.display = 'block';
                     statusDiv.textContent = "Quantization complete!";
+
+                    // 3. Clean up the PyProxy (Important for memory management).
+                    // After you are done with the Uint8Array (e.g., after the blob is created
+                    // and URL used), destroy the PyProxy to free up memory on the Python side.
+                    if (resultBytesPyProxy && typeof resultBytesPyProxy.destroy === 'function') {
+                        resultBytesPyProxy.destroy();
+                    }
                 } else {
-                    statusDiv.textContent = "Quantization failed. See console for Python errors.";
+                    statusDiv.textContent = "Quantization failed or returned no data. See console.";
                 }
                 // Clean up PyProxy if it's not automatically handled by toJs({ sở hữu_buffer: true })
                 // resultBytes.destroy(); // If resultBytes is a PyProxy and not destroyed by toJs
@@ -223,4 +282,5 @@ print("Python setup complete, quantize_image_placeholder_py is ready.")
 
     </script>
 </body>
+
 </html>
