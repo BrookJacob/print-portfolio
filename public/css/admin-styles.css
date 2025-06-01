@@ -324,6 +324,25 @@
         /* Ensure spacing */
     }
 
+    .gallery-grid .print-item.sortable-chosen {
+        /* Style for the item being actively dragged */
+        opacity: 0.8;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .gallery-grid .print-item.sortable-ghost {
+        /* Style for the placeholder where the item will drop */
+        opacity: 0.4;
+        background-color: #f0f0f0;
+        border: 2px dashed #ccc;
+    }
+
+    .gallery-grid .print-item.sortable-drag {
+        /* This class is applied to the item being dragged by SortableJS */
+        cursor: grabbing !important;
+        /* Ensure grabbing cursor during drag */
+    }
+
     /* === Form Styles (Inside Modal) === */
     .modal-content label {
         display: block;
