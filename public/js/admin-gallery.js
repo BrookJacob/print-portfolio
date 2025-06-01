@@ -95,8 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let generatedThumbnailBlob = null; // Will hold the Blob data
 
+
     // --- Masonry Variable ---
     let msnry = null;
+
+    // --- Sortable Variable ---
+    let sortable = null;
 
     // --- Utility Functions ---
     function showStatus(element, message, isError = false) {
@@ -122,10 +126,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hideProgressBars() {
         // REMOVE: if(thumbnailProgressContainer) thumbnailProgressContainer.style.display = 'none';
-        if(fullsizeProgressContainer) fullsizeProgressContainer.style.display = 'none';
+        if (fullsizeProgressContainer) fullsizeProgressContainer.style.display = 'none';
         // REMOVE: if(thumbnailProgressBar) { thumbnailProgressBar.style.width = '0%'; thumbnailProgressBar.textContent = '0%'; }
-        if(fullsizeProgressBar) { fullsizeProgressBar.style.width = '0%'; fullsizeProgressBar.textContent = '0%'; }
-   }
+        if (fullsizeProgressBar) { fullsizeProgressBar.style.width = '0%'; fullsizeProgressBar.textContent = '0%'; }
+    }
 
     // --- Modal Handling ---
     function openModal(modalId) { /* ... same as before ... */
@@ -162,11 +166,11 @@ document.addEventListener('DOMContentLoaded', () => {
             hideProgressBars();
             // Reset thumbnail preview
             generatedThumbnailBlob = null;
-            if(thumbnailPreviewImg) {
+            if (thumbnailPreviewImg) {
                 thumbnailPreviewImg.style.display = 'none';
                 thumbnailPreviewImg.removeAttribute('src');
             }
-            if(thumbnailPreviewPlaceholder) thumbnailPreviewPlaceholder.style.display = 'inline';
+            if (thumbnailPreviewPlaceholder) thumbnailPreviewPlaceholder.style.display = 'inline';
             showStatus(thumbnailGenStatus, null); // Clear generation status
 
             openModal('add-print-modal');
@@ -210,10 +214,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             showStatus(aboutStatus, "Could not load existing About text.", true);
                         });
                 }
+                loadGallery(); // Reload gallery to potentially enable/disable sortable
             } else {
                 console.log("Non-admin user logged in.");
                 // Hide elements specifically for admin
                 adminOnlyElements.forEach(el => el.style.display = 'none');
+                loadGallery(); // Reload gallery to disable sortable
             }
 
         } else {
@@ -341,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const img = document.createElement('img');
         img.src = printData.imgThumbnail || 'https://placehold.co/300x300/eee/ccc?text=Image+Missing';
         img.alt = printData.description || printData.title || 'Print image';
-        img.onerror = function() { this.onerror = null; this.src = 'https://placehold.co/300x300/eee/ccc?text=Error'; if(msnry) msnry.layout(); };
+        img.onerror = function () { this.onerror = null; this.src = 'https://placehold.co/300x300/eee/ccc?text=Error'; if (msnry) msnry.layout(); };
 
         // Store data directly on the img for lightbox access
         img.setAttribute('data-doc-id', docId); // Also store doc ID here
@@ -365,9 +371,14 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Admin Page: Attempting to fetch prints...");
         grid.innerHTML = '<p style="text-align:center;">Loading gallery...</p>'; // Loading indicator
         if (msnry) {
-             try { msnry.destroy(); } catch(e) { console.warn("Error destroying masonry:", e); }
-             msnry = null;
-         }
+            try { msnry.destroy(); } catch (e) { console.warn("Error destroying masonry:", e); }
+            msnry = null;
+        }
+
+        if (sortable) { // Destroy previous sortable instance if it exists
+            try { sortable.destroy(); } catch (e) { console.warn("Error destroying sortable:", e); }
+            sortable = null;
+        }
 
         try {
             const querySnapshot = await printsCollection.orderBy("order", "asc").get();
@@ -394,24 +405,115 @@ document.addEventListener('DOMContentLoaded', () => {
 
             grid.innerHTML = ''; // Clear loading indicator
             grid.appendChild(fragment);
-            initializeOrUpdateMasonry(newItems); // Initialize masonry and attach listeners
+            initializeMasonryAndSortable(newItems); // Initialize masonry and Sortable and attach listeners
 
         } catch (error) {
             console.error("Admin Page: Error fetching prints: ", error);
             grid.innerHTML = '<p style="text-align: center; color: red;">Could not load gallery items. Check console for errors.</p>';
-            if (msnry) { try { msnry.destroy(); } catch(e) {} msnry = null; }
+            if (msnry) { try { msnry.destroy(); } catch (e) { } msnry = null; }
         }
     }
 
-    function initializeOrUpdateMasonry(items) { /* ... same as before ... */
-        if (!grid || !items || items.length === 0) { if (msnry) { msnry.destroy(); msnry = null; } return; }
+    function initializeMasonryAndSortable(items) {
+        if (!grid || !items || items.length === 0) {
+            if (msnry) { msnry.destroy(); msnry = null; }
+            if (sortable) { sortable.destroy(); sortable = null; }
+            return;
+        }
+
         imagesLoaded(grid, function () {
-            if (msnry) { msnry.reloadItems(); msnry.layout(); }
-            else { msnry = new Masonry(grid, { itemSelector: '.print-item', columnWidth: '.print-item', gutter: 20, percentPosition: true, transitionDuration: '0.4s' }); }
+            // Initialize Masonry
+            if (msnry) {
+                msnry.reloadItems();
+            } else {
+                msnry = new Masonry(grid, {
+                    itemSelector: '.print-item',
+                    columnWidth: '.print-item', // Or a sizer element
+                    gutter: 20,
+                    percentPosition: true,
+                    transitionDuration: '0.4s'
+                });
+            }
+            msnry.layout();
             grid.style.opacity = '1';
-            attachGalleryItemListeners();
+            console.log('Masonry initialized/updated.');
+
+            attachGalleryItemListeners(); // For lightbox, etc.
+
+            // Initialize SortableJS if admin is logged in
+            const user = auth.currentUser;
+            if (user && user.uid === ADMIN_UID) {
+                if (sortable) { // Destroy existing if any (should be handled by loadGallery)
+                    sortable.destroy();
+                }
+                sortable = new Sortable(grid, {
+                    animation: 150, // ms, animation speed moving items when sorting, `0` — without animation
+                    ghostClass: 'sortable-ghost',  // Class name for the drop placeholder
+                    chosenClass: 'sortable-chosen', // Class name for the chosen item
+                    dragClass: 'sortable-drag',    // Class name for the dragging item
+                    filter: '.admin-only, input, textarea, button', // Don't allow drag from buttons/inputs inside items if any
+                    preventOnFilter: true, // Call `event.preventDefault()` when triggered `filter`
+                    onUpdate: async function (evt) {
+                        console.log('Drag operation ended. New order:', evt.newIndex, 'Old order:', evt.oldIndex);
+                        const items = Array.from(grid.querySelectorAll('.print-item'));
+                        const updates = [];
+
+                        items.forEach((item, index) => {
+                            const docId = item.getAttribute('data-doc-id');
+                            // The new order is simply the item's current index in the DOM
+                            updates.push({ docId: docId, newOrder: index });
+                        });
+
+                        // Update Firestore
+                        await updatePrintOrderInFirestore(updates);
+
+                        // After Firestore update, Masonry needs to re-layout based on potentially changed DOM attributes
+                        // or if loadGallery is called. If DOM order is source of truth for Masonry, it's already done.
+                        if (msnry) {
+                            msnry.reloadItems(); // Important if item sizes or attributes affecting layout changed
+                            msnry.layout();
+                        }
+                    }
+                });
+                console.log('SortableJS initialized.');
+            } else {
+                if (sortable) {
+                    sortable.destroy(); // Destroy sortable if user logs out or is not admin
+                    sortable = null;
+                    console.log('SortableJS destroyed (user not admin).');
+                }
+            }
         });
     }
+
+    async function updatePrintOrderInFirestore(updates) {
+        showStatus(uploadStatus, "Updating print order...", false); // Use an appropriate status element
+
+        const batch = db.batch();
+        updates.forEach(update => {
+            if (update.docId) {
+                const printRef = printsCollection.doc(update.docId);
+                batch.update(printRef, { order: update.newOrder });
+            }
+        });
+
+        try {
+            await batch.commit();
+            showStatus(uploadStatus, "Print order updated successfully!", false);
+            console.log("Print order updated in Firestore.");
+            // Optionally, delay clearing the message
+            setTimeout(() => showStatus(uploadStatus, null), 3000);
+
+            // Refresh the data attributes on the items in the DOM if needed
+            // or rely on a full loadGallery() if complexities arise.
+            // For now, SortableJS has reordered the DOM, Masonry has relaid out.
+            // The next loadGallery will fetch the new order.
+        } catch (error) {
+            console.error("Error updating print order in Firestore: ", error);
+            showStatus(uploadStatus, `Error updating order: ${error.message}`, true);
+        }
+    }
+
     function attachGalleryItemListeners() { /* ... same as before ... */
         const galleryItems = grid.querySelectorAll('.thumbnail-container');
         galleryItems.forEach(item => item.replaceWith(item.cloneNode(true)));
@@ -453,15 +555,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!docId || !fullSrc || !thumbSrc) {
-             console.error("Lightbox Error: Missing essential data attributes (doc-id, fullsrc, thumbsrc) on image element:", imgElement);
-             // Optionally show an error to the user in the lightbox
-             if(lightboxTitle) lightboxTitle.textContent = "Error";
-             if(lightboxDescription) lightboxDescription.textContent = "Could not load details for this item.";
-             // Hide delete button if data is missing
-             if (lightboxDeleteButton) lightboxDeleteButton.style.display = 'none';
-             lightbox.classList.add('active');
-             document.body.style.overflow = 'hidden';
-             return;
+            console.error("Lightbox Error: Missing essential data attributes (doc-id, fullsrc, thumbsrc) on image element:", imgElement);
+            // Optionally show an error to the user in the lightbox
+            if (lightboxTitle) lightboxTitle.textContent = "Error";
+            if (lightboxDescription) lightboxDescription.textContent = "Could not load details for this item.";
+            // Hide delete button if data is missing
+            if (lightboxDeleteButton) lightboxDeleteButton.style.display = 'none';
+            lightbox.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            return;
         }
 
 
@@ -480,39 +582,39 @@ document.addEventListener('DOMContentLoaded', () => {
         lightbox.setAttribute('data-original-size_h', size_h || '');
 
         // Populate lightbox display elements
-        if(lightboxImg) {
+        if (lightboxImg) {
             lightboxImg.setAttribute('src', fullSrc || '');
-            lightboxImg.onerror = function() { this.onerror = null; this.alt = 'Image load error'; };
+            lightboxImg.onerror = function () { this.onerror = null; this.alt = 'Image load error'; };
             lightboxImg.setAttribute('alt', title || 'Enlarged print');
         }
-        if(lightboxTitle) lightboxTitle.textContent = title || '';
-        if(lightboxYear) lightboxYear.textContent = year || '';
-        if(lightboxDimensions) lightboxDimensions.textContent = size_w && size_h ? `${size_w} x ${size_h} inches` : '';
-        if(lightboxPrice) lightboxPrice.textContent = priceAttr || '';
-        if(lightboxPrice) lightboxPrice.textContent = price || '';
-        if(lightboxDescription) {
+        if (lightboxTitle) lightboxTitle.textContent = title || '';
+        if (lightboxYear) lightboxYear.textContent = year || '';
+        if (lightboxDimensions) lightboxDimensions.textContent = size_w && size_h ? `${size_w} x ${size_h} inches` : '';
+        if (lightboxPrice) lightboxPrice.textContent = priceAttr || '';
+        if (lightboxPrice) lightboxPrice.textContent = price || '';
+        if (lightboxDescription) {
             lightboxDescription.textContent = description || '';
             lightboxDescription.style.display = description ? 'block' : 'none';
         }
-        if(lightboxEditTitle) lightboxEditTitle.value = title || '';
-        if(lightboxEditYear) lightboxEditYear.value = year || '';
-        if(lightboxEditOrder) {
+        if (lightboxEditTitle) lightboxEditTitle.value = title || '';
+        if (lightboxEditYear) lightboxEditYear.value = year || '';
+        if (lightboxEditOrder) {
             // Fetch 'order' from Firestore or pass it via data attribute if not already
             // For now, assuming we might need to fetch it if not directly on imgElement
             // Or, ensure 'order' is a data attribute on the image or its parent
             const printItemElement = imgElement.closest('.print-item');
             const orderVal = printItemElement ? printItemElement.dataset.orderVal : ''; // You'd add data-order-val in createGalleryItem
-             printsCollection.doc(docId).get().then(doc => {
+            printsCollection.doc(docId).get().then(doc => {
                 if (doc.exists) {
                     lightboxEditOrder.value = doc.data().order || '';
                     lightbox.setAttribute('data-original-order', doc.data().order || '');
                 }
             }).catch(err => console.error("Error fetching order for edit:", err));
         }
-        if(lightboxEditPrice) lightboxEditPrice.value = price; // Use parsed numeric price
-        if(lightboxEditSizeW) lightboxEditSizeW.value = size_w || '';
-        if(lightboxEditSizeH) lightboxEditSizeH.value = size_h || '';
-        if(lightboxEditDescription) lightboxEditDescription.value = description || '';
+        if (lightboxEditPrice) lightboxEditPrice.value = price; // Use parsed numeric price
+        if (lightboxEditSizeW) lightboxEditSizeW.value = size_w || '';
+        if (lightboxEditSizeH) lightboxEditSizeH.value = size_h || '';
+        if (lightboxEditDescription) lightboxEditDescription.value = description || '';
 
         // Check current auth state to show/hide delete button
         const user = auth.currentUser;
@@ -538,16 +640,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!lightbox) return;
         lightbox.classList.remove('active');
         document.body.style.overflow = 'auto';
-        if(lightboxImg) lightboxImg.setAttribute('src', ''); // Clear src
+        if (lightboxImg) lightboxImg.setAttribute('src', ''); // Clear src
         // Clear stored data
         lightbox.removeAttribute('data-doc-id');
         lightbox.removeAttribute('data-fullsrc');
         lightbox.removeAttribute('data-thumbsrc');
         // Hide status message
-         showStatus(lightboxDeleteStatus, null);
-         showStatus(lightboxEditStatus, null);
-         if (lightboxEditForm) lightboxEditForm.style.display = 'none';
-         toggleEditMode(false);
+        showStatus(lightboxDeleteStatus, null);
+        showStatus(lightboxEditStatus, null);
+        if (lightboxEditForm) lightboxEditForm.style.display = 'none';
+        toggleEditMode(false);
     }
 
     function toggleEditMode(isEditing) {
@@ -636,11 +738,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const newSizeW = newSizeWStr ? parseFloat(newSizeWStr) : null;
             if (newSizeWStr && isNaN(newSizeW)) {
-                 showStatus(lightboxEditStatus, "Error: Width must be a valid number.", true); return;
+                showStatus(lightboxEditStatus, "Error: Width must be a valid number.", true); return;
             }
             const newSizeH = newSizeHStr ? parseFloat(newSizeHStr) : null;
             if (newSizeHStr && isNaN(newSizeH)) {
-                 showStatus(lightboxEditStatus, "Error: Height must be a valid number.", true); return;
+                showStatus(lightboxEditStatus, "Error: Height must be a valid number.", true); return;
             }
 
 
@@ -766,14 +868,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             return;
                         }
                         // Add a filename to the blob
-                         blob.name = `thumb_${file.name}`;
+                        blob.name = `thumb_${file.name}`;
                         // Resolve with the blob
                         resolve(blob);
 
                     }, THUMBNAIL_FORMAT, THUMBNAIL_QUALITY);
                 };
                 img.onerror = () => {
-                     reject(new Error("Failed to load image for thumbnail generation."));
+                    reject(new Error("Failed to load image for thumbnail generation."));
                 };
                 img.src = e.target.result; // Set source for the Image object
             };
@@ -805,10 +907,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 thumbnailPreviewImg.src = previewUrl;
                 thumbnailPreviewImg.style.display = 'block'; // Show the img tag
                 thumbnailPreviewPlaceholder.style.display = 'none'; // Hide placeholder
-                 // Clean up the object URL when the image is loaded to prevent memory leaks
-                 thumbnailPreviewImg.onload = () => {
-                     URL.revokeObjectURL(thumbnailPreviewImg.src);
-                 }
+                // Clean up the object URL when the image is loaded to prevent memory leaks
+                thumbnailPreviewImg.onload = () => {
+                    URL.revokeObjectURL(thumbnailPreviewImg.src);
+                }
 
 
                 showStatus(thumbnailGenStatus, `Thumbnail generated (${(generatedThumbnailBlob.size / 1024).toFixed(1)} KB). Ready to upload.`, false); // Use 'success' class optionally
@@ -829,13 +931,13 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             showStatus(uploadStatus, "Starting upload...", false);
-            if(uploadButton) uploadButton.disabled = true;
+            if (uploadButton) uploadButton.disabled = true;
             hideProgressBars(); // Hides only fullsize progress now
 
             const user = auth.currentUser;
             if (!user || user.uid !== ADMIN_UID) { // Combined checks
                 showStatus(uploadStatus, "Error: Admin user not logged in or insufficient permissions.", true);
-                if(uploadButton) uploadButton.disabled = false;
+                if (uploadButton) uploadButton.disabled = false;
                 return;
             }
 
@@ -854,18 +956,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Validation
             if (!title || isNaN(order) || !fullsizeFile || !thumbnailFileBlob) {
-                 let errorMsg = "Error: Please fill in Title, Order, select a full-size image, and ensure thumbnail is generated.";
-                 if (!fullsizeFile) errorMsg = "Error: Please select a full-size image file.";
-                 else if (!thumbnailFileBlob) errorMsg = "Error: Thumbnail not generated. Please re-select the full-size image.";
-                 else errorMsg = "Error: Please fill in Title and Order fields.";
+                let errorMsg = "Error: Please fill in Title, Order, select a full-size image, and ensure thumbnail is generated.";
+                if (!fullsizeFile) errorMsg = "Error: Please select a full-size image file.";
+                else if (!thumbnailFileBlob) errorMsg = "Error: Thumbnail not generated. Please re-select the full-size image.";
+                else errorMsg = "Error: Please fill in Title and Order fields.";
 
-                 showStatus(uploadStatus, errorMsg, true);
-                 if(uploadButton) uploadButton.disabled = false;
-                 return;
+                showStatus(uploadStatus, errorMsg, true);
+                if (uploadButton) uploadButton.disabled = false;
+                return;
             }
 
             const timestamp = Date.now();
-             // Use blob's name if available, otherwise construct one
+            // Use blob's name if available, otherwise construct one
             const thumbFileName = `${timestamp}_${thumbnailFileBlob.name || 'thumb.jpg'}`;
             const fullFileName = `${timestamp}_full_${fullsizeFile.name}`;
             const thumbStoragePath = `thumbnails/${thumbFileName}`;
@@ -900,25 +1002,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 uploadForm.reset(); // Reset form fields
                 // --> Manually reset preview state after successful upload <--
                 generatedThumbnailBlob = null;
-                 if(thumbnailPreviewImg) {
-                     thumbnailPreviewImg.style.display = 'none';
-                     thumbnailPreviewImg.removeAttribute('src');
-                 }
-                 if(thumbnailPreviewPlaceholder) thumbnailPreviewPlaceholder.style.display = 'inline';
-                 showStatus(thumbnailGenStatus, null);
+                if (thumbnailPreviewImg) {
+                    thumbnailPreviewImg.style.display = 'none';
+                    thumbnailPreviewImg.removeAttribute('src');
+                }
+                if (thumbnailPreviewPlaceholder) thumbnailPreviewPlaceholder.style.display = 'inline';
+                showStatus(thumbnailGenStatus, null);
 
                 closeModal('add-print-modal'); // Close modal on success
                 await loadGallery(); // Reload the gallery display
 
             } catch (error) {
                 console.error("Admin Page: Upload failed:", error);
-                 let errorMsg = `Upload Failed: ${error.message}`;
+                let errorMsg = `Upload Failed: ${error.message}`;
                 if (error.code === 'storage/unauthorized' || error.code === 'permission-denied') {
                     errorMsg = "Upload Failed: Permission denied. Ensure you are logged in with the admin account and rules are correctly set.";
                 }
                 showStatus(uploadStatus, errorMsg, true);
             } finally {
-                if(uploadButton) uploadButton.disabled = false;
+                if (uploadButton) uploadButton.disabled = false;
             }
         });
     }
@@ -930,23 +1032,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const showProgress = progressContainer && progressBar;
 
         return new Promise((resolve, reject) => {
-           const fileRef = storageRef.ref(path);
-           const uploadTask = fileRef.put(file); // Uploads File or Blob
+            const fileRef = storageRef.ref(path);
+            const uploadTask = fileRef.put(file); // Uploads File or Blob
 
-           uploadTask.on('state_changed',
-               (snapshot) => {
-                   if (showProgress) { // Only update progress if elements exist
-                       const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                       updateProgressBar(progressContainer, progressBar, progress);
-                   }
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    if (showProgress) { // Only update progress if elements exist
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        updateProgressBar(progressContainer, progressBar, progress);
+                    }
                 },
-               (error) => { reject(error); },
-               () => {
-                   uploadTask.snapshot.ref.getDownloadURL().then(resolve).catch(reject);
+                (error) => { reject(error); },
+                () => {
+                    uploadTask.snapshot.ref.getDownloadURL().then(resolve).catch(reject);
                 }
-           );
-       });
-   }
+            );
+        });
+    }
 
     async function deletePrint() {
         if (!lightboxDeleteButton || !lightbox) return;
@@ -979,30 +1081,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 2. Delete Full-size Image from Storage
             try {
-                 showStatus(lightboxDeleteStatus, "Deleting full-size image...", false);
-                 const fullSizeRef = storage.refFromURL(fullSrc);
-                 await fullSizeRef.delete();
-                 console.log(`Storage file (full-size) ${fullSrc} deleted.`);
+                showStatus(lightboxDeleteStatus, "Deleting full-size image...", false);
+                const fullSizeRef = storage.refFromURL(fullSrc);
+                await fullSizeRef.delete();
+                console.log(`Storage file (full-size) ${fullSrc} deleted.`);
             } catch (storageError) {
-                 // Log error but continue to delete thumbnail if possible
-                 console.error(`Error deleting full-size image ${fullSrc}:`, storageError);
-                 // Optionally inform user, but primary goal is DB entry deletion
-                 showStatus(lightboxDeleteStatus, "Database entry deleted, but error deleting full-size image (check console).", true);
-                 // Do not re-throw yet, try deleting thumbnail
+                // Log error but continue to delete thumbnail if possible
+                console.error(`Error deleting full-size image ${fullSrc}:`, storageError);
+                // Optionally inform user, but primary goal is DB entry deletion
+                showStatus(lightboxDeleteStatus, "Database entry deleted, but error deleting full-size image (check console).", true);
+                // Do not re-throw yet, try deleting thumbnail
             }
 
 
             // 3. Delete Thumbnail Image from Storage
-             try {
-                 showStatus(lightboxDeleteStatus, "Deleting thumbnail image...", false);
-                 const thumbRef = storage.refFromURL(thumbSrc);
-                 await thumbRef.delete();
-                 console.log(`Storage file (thumbnail) ${thumbSrc} deleted.`);
+            try {
+                showStatus(lightboxDeleteStatus, "Deleting thumbnail image...", false);
+                const thumbRef = storage.refFromURL(thumbSrc);
+                await thumbRef.delete();
+                console.log(`Storage file (thumbnail) ${thumbSrc} deleted.`);
             } catch (storageError) {
-                 // Log error, database entry is already gone.
-                 console.error(`Error deleting thumbnail image ${thumbSrc}:`, storageError);
-                 showStatus(lightboxDeleteStatus, "Database entry deleted, but error deleting thumbnail image (check console).", true);
-                 // Do not re-throw
+                // Log error, database entry is already gone.
+                console.error(`Error deleting thumbnail image ${thumbSrc}:`, storageError);
+                showStatus(lightboxDeleteStatus, "Database entry deleted, but error deleting thumbnail image (check console).", true);
+                // Do not re-throw
             }
 
 
@@ -1026,6 +1128,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Initial Load ---
-    loadGallery(); // Load the gallery when the admin page loads
+    //loadGallery(); // This is now called within onAuthStateChanged after intial auth check
 
 }); // End DOMContentLoaded
