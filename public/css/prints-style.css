@@ -346,9 +346,6 @@ header nav.main-navigation a:hover {
     /* Stack image over details */
     align-items: center;
     /* overflow: hidden; */
-    /* Consider changing to auto if absolutely necessary */
-    overflow: hidden;
-    /* Let's try keeping it hidden for now */
 }
 
 #lightbox-img {
