@@ -326,48 +326,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentYearSpan.textContent = new Date().getFullYear();
     }
 
-    // --- Contact Form (Keep Asynchronous Submission as is) ---
-    if (contactForm && formStatus && submitButton) {
-        contactForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            submitButton.disabled = true;
-            submitButton.textContent = 'Sending...';
-            formStatus.textContent = '';
-            formStatus.style.color = 'inherit';
-            const formData = new FormData(contactForm);
-            const formDataObject = Object.fromEntries(formData.entries());
-
-            try {
-                const response = await fetch('/api/sendMessage', { // Assumes you have a Cloud Function endpoint
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', },
-                    body: JSON.stringify(formDataObject),
-                });
-                const result = await response.json();
-                if (response.ok && result.success) {
-                    formStatus.textContent = 'Message sent successfully! Thank you.';
-                    formStatus.style.color = 'var(--color-accent)';
-                    contactForm.reset();
-                } else {
-                    formStatus.textContent = result.error || 'An error occurred server-side. Please try again.';
-                    formStatus.style.color = 'red';
-                }
-            } catch (error) {
-                console.error('Network or fetch error submitting form:', error.message);
-                formStatus.textContent = 'Network error. Please check connection and try again.';
-                formStatus.style.color = 'red';
-            } finally {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Send Message';
-            }
-        });
-    } else {
-        if (!contactForm) console.error("Contact form element not found.");
-        if (!formStatus) console.error("Form status element not found.");
-        if (!submitButton) console.error("Form submit button not found.");
-    }
-    // --- End Contact Form ---
-
     // --- Initial Load ---
     console.log('Calling loadGallery()...');
     loadGallery(); // Call the function to fetch data and build the gallery
