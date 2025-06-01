@@ -42,14 +42,39 @@
         </section>
 
     <section id="contact">
-        </section>
-</main>
+      <h2>Contact</h2>
+      <form id="contact-form" action="/api/sendMessage" method="POST">
+        <div class="form-group"><label for="name">Name:</label><input type="text" id="name" name="name" required></div>
+        <div class="form-group"><label for="email">Email:</label><input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group"><label for="message">Message:</label><textarea id="message" name="message" rows="5"
+            required></textarea></div>
+        <button type="submit">Send Message</button>
+      </form>
+      <p id="form-status"></p>
+    </section>
+  </main>
 
-  
+  <div id="lightbox" class="lightbox">
+    <button class="close-btn" aria-label="Close lightbox">&times;</button>
+    <div class="lightbox-content">
+      <img id="lightbox-img" src="" alt="Enlarged print">
+      <div id="lightbox-details">
+        <h3 id="lightbox-title"></h3>
+        <p id="lightbox-year"></p>
+        <p id="lightbox-dimensions"></p>
+        <p id="lightbox-price"></p>
+        <p id="lightbox-description"></p>
+      </div>
+    </div>
+  </div>
 
   <footer>
     <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved.</p>
   </footer>
+
+  <script src="https://unpkg.com/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
+  <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 
   <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore-compat.js"></script>
@@ -86,8 +111,9 @@
     const storage = firebase.storage();
 
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <script src="../js/coding-script.js" defer></script>
+  <script src="../js/script.js" defer></script>
 
 </body>
 
