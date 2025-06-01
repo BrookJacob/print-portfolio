@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Data Visualization - Jacob Brook</title>
+    <link rel="stylesheet" href="../../css/prints-style.css"> <style>
+        /* Article-specific styles */
+        .interactive-chart-container { border: 1px solid #ccc; min-height: 300px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <div class="site-title">
+                <h1><a href="/coding">Jacob Brook - Coding</a></h1>
+            </div>
+            <nav class="main-navigation">
+                <ul class="site-menu">
+                    <li><a href="/prints">Prints</a></li>
+                    <li><a href="/coding">Back to Coding Articles</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="article-content">
+            <h2>Interactive Data Visualization with D3.js</h2>
+            <p>Article content goes here...</p>
+            
+            <div id="d3-chart-goes-here" class="interactive-chart-container">
+                </div>
+            <button id="update-chart-button">Update Data</button>
+
+            <p>More article content...</p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved.</p>
+    </footer>
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="../../js/coding_articles/interactive_data_viz.js"></script> 
+    <script>
+        // Update footer year (simple common script)
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+    </script>
+</body>
+</html>

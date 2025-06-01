@@ -19,10 +19,10 @@
       </div>
       <nav class="main-navigation">
         <ul class="site-menu">
-          <li><a href="#prints-section">Prints</a></li>
+          <li><a href="#coding-articles-list">Coding</a></li>
           <li><a href="#about">About</a></li>
           <li><a href="#contact">Contact</a></li>
-          <li><a href="/prints" rel="noopener noreferrer">Prints</a></li> 
+          <li><a href="/prints" rel="noopener noreferrer">Prints</a></li>
         </ul>
       </nav>
     </div>
@@ -30,16 +30,20 @@
 
   <main>
     <section id="coding-articles-list">
-        <h2>Coding Articles</h2>
-        <article>
-            <h3><a href="/html/coding_articles/interactive_data_viz.html">Interactive Data Visualization with D3.js</a></h3>
-            <p>A deep dive into creating dynamic charts from data...</p>
-        </article>
-        <article>
-            <h3><a href="/html/coding_articles/web_animations_api.html">Fun with the Web Animations API</a></h3>
-            <p>Exploring how to create smooth animations natively in the browser...</p>
-        </article>
-        </section>
+      <h2>Coding</h2>
+      <article>
+        <h3><a href="/html/coding/image_quantization.html">Image Quantization</a></h3>
+        <p>Creating a window based image quantizer for use in my printmaking projects...</p>
+      </article>
+    </section>
+
+    <section id="about">
+      <h2>About</h2>
+      <div class="about-content">
+        <p>Your artist statement...</p>
+        <p>More details...</p>
+      </div>
+    </section>
 
     <section id="contact">
       <h2>Contact</h2>
@@ -80,7 +84,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-storage-compat.js"></script>
   <script type="module">
-    
+
     const firebaseConfig = {
       apiKey: "AIzaSyAo3HnhE1L2OEg39_kGXMnEkGB6bvD2OSY",
       authDomain: "print-portfolio-33ab1.firebaseapp.com",
