@@ -68,44 +68,48 @@
                 <p id="lightbox-description"></p>
 
                 <div id="lightbox-edit-form" style="display: none; margin-top: 15px;">
-                <div class="form-group-inline">
-                    <label for="lightbox-edit-title">Title:</label>
-                    <input type="text" id="lightbox-edit-title">
-                </div>
-                <div class="form-group-inline">
-                    <label for="lightbox-edit-year">Year:</label>
-                    <input type="text" id="lightbox-edit-year" placeholder="e.g., 2025">
-                </div>
-                <div class="form-group-inline">
-                    <label for="lightbox-edit-order">Order:</label>
-                    <input type="number" id="lightbox-edit-order" placeholder="e.g., 1">
-                </div>
-                <div class="form-group-inline">
-                    <label for="lightbox-edit-price">Price:</label>
-                    <input type="number" id="lightbox-edit-price" step="0.01" placeholder="e.g., 150">
-                </div>
-                <div class="form-group-inline">
-                    <label for="lightbox-edit-size_w">Width (in):</label>
-                    <input type="number" id="lightbox-edit-size_w" step="0.1">
-                </div>
-                <div class="form-group-inline">
-                    <label for="lightbox-edit-size_h">Height (in):</label>
-                    <input type="number" id="lightbox-edit-size_h" step="0.1">
-                </div>
-                <div class="form-group-inline">
-                    <label for="lightbox-edit-description">Description:</label>
-                    <textarea id="lightbox-edit-description" rows="3"></textarea>
-                </div>
+                    <div class="form-group-inline">
+                        <label for="lightbox-edit-title">Title:</label>
+                        <input type="text" id="lightbox-edit-title">
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="lightbox-edit-year">Year:</label>
+                        <input type="text" id="lightbox-edit-year" placeholder="e.g., 2025">
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="lightbox-edit-order">Order:</label>
+                        <input type="number" id="lightbox-edit-order" placeholder="e.g., 1">
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="lightbox-edit-price">Price:</label>
+                        <input type="number" id="lightbox-edit-price" step="0.01" placeholder="e.g., 150">
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="lightbox-edit-size_w">Width (in):</label>
+                        <input type="number" id="lightbox-edit-size_w" step="0.1">
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="lightbox-edit-size_h">Height (in):</label>
+                        <input type="number" id="lightbox-edit-size_h" step="0.1">
+                    </div>
+                    <div class="form-group-inline">
+                        <label for="lightbox-edit-description">Description:</label>
+                        <textarea id="lightbox-edit-description" rows="3"></textarea>
+                    </div>
                 </div>
 
-            <button id="lightbox-edit-button" class="admin-only action-button" style="display: none; margin-top:10px;">Edit Details</button>
-            <button id="lightbox-save-button" class="admin-only action-button" style="display: none; margin-top:10px;">Save Changes</button>
-            <button id="lightbox-cancel-edit-button" class="admin-only action-button secondary" style="display: none; margin-top:10px;">Cancel</button>
-            <p id="lightbox-edit-status" class="status-message" style="display: none; margin-top: 10px;"></p>
+                <button id="lightbox-edit-button" class="admin-only action-button"
+                    style="display: none; margin-top:10px;">Edit Details</button>
+                <button id="lightbox-save-button" class="admin-only action-button"
+                    style="display: none; margin-top:10px;">Save Changes</button>
+                <button id="lightbox-cancel-edit-button" class="admin-only action-button secondary"
+                    style="display: none; margin-top:10px;">Cancel</button>
+                <p id="lightbox-edit-status" class="status-message" style="display: none; margin-top: 10px;"></p>
 
-            <button id="lightbox-delete-button" class="admin-only delete-button" style="display: none; margin-top: 20px;">Delete Print</button>
-            <p id="lightbox-delete-status" class="status-message" style="display: none;"></p>
-        
+                <button id="lightbox-delete-button" class="admin-only delete-button"
+                    style="display: none; margin-top: 20px;">Delete Print</button>
+                <p id="lightbox-delete-status" class="status-message" style="display: none;"></p>
+
             </div>
         </div>
     </div>
@@ -175,7 +179,8 @@
         <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved. (Admin View)</p>
     </footer>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js" integrity="sha512-Eezs+g9Lq4TCCq0wae01s97wKTRBBVfHjdVVIuBOiJQEOzBCDNdSemqOCA6UEoRxCVDEdLXMPKZkqSDU2AJmOA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- jsDelivr :: Sortable :: Latest (https://www.jsdelivr.com/package/npm/sortablejs) -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="https://unpkg.com/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
     <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
 
