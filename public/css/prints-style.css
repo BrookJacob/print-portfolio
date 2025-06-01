@@ -136,14 +136,6 @@ header nav.main-navigation ul.site-menu li:first-child {
     margin-left: 0; /* No left margin for the first item in this group */
 }
 
-
-header nav.main-navigation ul.external-menu li { /* Style for Coding item */
-    /* margin-left is optional if gap on parent nav is enough, or add specific margin */
-    /* Example: if you want it to look slightly different or have more spacing */
-    /* margin-left: calc(var(--spacing-unit) * 1.5); */
-}
-
-
 header nav.main-navigation a { /* General style for all nav links */
     text-decoration: none;
     color: var(--color-text);
