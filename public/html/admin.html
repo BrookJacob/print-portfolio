@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Jacob Brook Printmaking</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin-styles.css">
+</head>
+
+<body>
+
+    <header>
+        <div class="header-container">
+            <div class="site-title">
+                <h1>Jacob Brook (Admin View)</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#gallery">Gallery</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                    <!--<li><a href="https://your-marketplace-link.com" target="_blank" rel="noopener noreferrer">Shop</a>
+                    </li>-->
+                    <li id="admin-nav-area" style="display: none;"> <span id="user-info-nav">Logged in: <span
+                                id="user-email-nav"></span></span>
+                        <button id="logout-button-nav" class="nav-button">Logout</button>
+                    </li>
+                    <li id="login-nav-area"> <button id="login-button-nav" class="nav-button">Admin Login</button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section id="gallery">
+            <div class="gallery-header">
+                <h2>Gallery</h2>
+                <button id="add-print-button" class="admin-only" style="display: none;">+ Add New Print</button>
+            </div>
+            <div class="gallery-grid">
+            </div>
+        </section>
+
+        <section id="about">
+            <div class="about-header">
+                <h2>About</h2>
+                <button id="edit-about-button" class="admin-only" style="display: none;">Save About</button>
+            </div>
+            <div class="about-description">
+                <textarea id="about-text" rows="20" cols="50"></textarea>
+            </div>
+            <p id="about-status" class="status-message" style="display: none; margin-top: 10px;"></p>
+        </section>
+
+        <section id="contact">
+            <h2>Contact</h2>
+            <p>Contact form placeholder...</p>
+        </section>
+    </main>
+
+    <div id="lightbox" class="lightbox">
+        <button class="close-btn" aria-label="Close lightbox">&times;</button>
+        <div class="lightbox-content">
+            <img id="lightbox-img" src="" alt="Enlarged print">
+            <div id="lightbox-details">
+                <h3 id="lightbox-title"></h3>
+                <p id="lightbox-year"></p>
+                <p id="lightbox-dimensions"></p>
+                <p id="lightbox-price"></p>
+                <p id="lightbox-description"></p>
+                <button id="lightbox-delete-button" class="admin-only delete-button" style="display: none;">Delete
+                    Print</button>
+                <p id="lightbox-delete-status" class="status-message" style="display: none;"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal-btn" data-modal-id="login-modal" aria-label="Close login dialog">&times;</button>
+            <h2>Admin Login</h2>
+            <form id="login-form">
+                <div> <label for="login-email">Email:</label> <input type="email" id="login-email" required> </div>
+                <div> <label for="login-password">Password:</label> <input type="password" id="login-password" required>
+                </div>
+                <button type="submit">Login with Email</button>
+            </form>
+            <div class="button-separator">OR</div>
+            <button id="google-signin-button">Sign in with Google</button>
+            <p id="login-error" class="status-message error" style="display: none;"></p>
+        </div>
+    </div>
+
+    <div id="add-print-modal" class="modal">
+        <div class="modal-content large">
+            <button class="close-modal-btn" data-modal-id="add-print-modal"
+                aria-label="Close add print dialog">&times;</button>
+            <h2>Add New Print</h2>
+            <form id="upload-form">
+                <div> <label for="title">Title:</label> <input type="text" id="title" required> </div>
+                <div class="form-grid">
+                    <div> <label for="year">Year:</label> <input type="text" id="year" placeholder="e.g., 2025"> </div>
+                    <div> <label for="order">Display Order:</label> <input type="number" id="order" required
+                            placeholder="e.g., 1, 2, 3..."> </div>
+                </div>
+                <div class="form-grid">
+                    <div> <label for="price">Price:</label> <input type="number" id="price" step="0.01"
+                            placeholder="e.g., 150"> </div>
+                    <div> <label for="size_w">Width (inches):</label> <input type="number" id="size_w" step="0.1">
+                    </div>
+                    <div> <label for="size_h">Height (inches):</label> <input type="number" id="size_h" step="0.1">
+                    </div>
+                </div>
+                <div> <label for="description">Description:</label> <textarea id="description" rows="4"></textarea>
+                </div>
+                <div> <label for="fullsize-file">Full-size Image (JPG/PNG):</label> <input type="file"
+                        id="fullsize-file" accept="image/jpeg, image/png" required> </div>
+                <div>
+                    <label>Thumbnail Preview (Auto-generated):</label>
+                    <div id="thumbnail-preview-container"
+                        style="margin-top: 5px; min-height: 100px; border: 1px dashed #ccc; padding: 5px; display: flex; align-items: center; justify-content: center;">
+                        <img id="thumbnail-preview" src="#" alt="Thumbnail Preview"
+                            style="display: none; max-width: 150px; max-height: 150px; object-fit: contain;">
+                        <span id="thumbnail-preview-placeholder" style="color: #888; font-size: 0.9em;">Select a
+                            full-size image to generate thumbnail</span>
+                    </div>
+                    <p id="thumbnail-gen-status" class="status-message" style="display: none; margin-top: 5px;"></p>
+                </div>
+                <label>Full-size Upload Progress:</label>
+                <div id="fullsize-progress-container" class="progress-bar-container">
+                    <div id="fullsize-progress-bar" class="progress-bar">0%</div>
+                </div>
+                <button type="submit" id="upload-button">Upload Print</button>
+                <p id="upload-status" class="status-message" style="display: none;"></p>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved. (Admin View)</p>
+    </footer>
+
+    <script src="https://unpkg.com/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
+    <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-storage-compat.js"></script>
+
+    <script>
+        // IMPORTANT: Replace with your actual Firebase project configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAo3HnhE1L2OEg39_kGXMnEkGB6bvD2OSY",
+            authDomain: "print-portfolio-33ab1.firebaseapp.com",
+            projectId: "print-portfolio-33ab1",
+            storageBucket: "print-portfolio-33ab1.firebasestorage.app",
+            messagingSenderId: "99044661717",
+            appId: "1:99044661717:web:c241a6d855f4433620855c"
+        };
+        firebase.initializeApp(firebaseConfig);
+
+        // --- Emulator Connection ---
+        // Decide if this admin page connects to emulators or LIVE services.
+        // Defaulting to LIVE for admin tasks. Uncomment below to use emulators.
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+            console.log("Admin page running locally. Connecting Firestore/Storage to Emulators.");
+            try {
+                firebase.firestore().useEmulator("localhost", 8080);
+                firebase.storage().useEmulator("localhost", 9199);
+                // Keep Auth pointing to LIVE for Google Sign-In
+            } catch (e) { console.warn("Emulator connection error:", e); }
+        } else {
+            console.log("Admin page running deployed. Connecting to live Firebase services.");
+        }
+
+        // Get Firebase service instances
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+    </script>
+
+    <script src="admin-gallery.js" defer></script>
+
+</body>
+
+</html>

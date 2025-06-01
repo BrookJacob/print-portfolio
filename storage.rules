@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // === Rules for Image Files ===
+    // Assuming your images are stored directly or in a known path (e.g., 'prints/')
+    // This example allows reading any file. Adjust the path if needed.
+    match /{allPaths=**} { // You could make this more specific, e.g., match /prints/{imageId}
+
+      // Allow anyone to read files (needed for public image display via URL)
+      allow read: if true;
+
+      // IMPORTANT: Only allow YOUR specific user ID to upload, modify, or delete files.
+      // This provides an extra layer of security, although uploads/deletes
+      // should ideally be managed securely via your Cloud Function.
+      // Replace 'YOUR_ADMIN_UID' with your actual Firebase User ID
+      allow write: if request.auth != null && request.auth.uid == 't0JEI9gKoLPk3dgC03aFwn3u2Xs1';
+    }
+  }
+}

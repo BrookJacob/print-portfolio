@@ -1,0 +1,20 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /prints/{print} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == 't0JEI9gKoLPk3dgC03aFwn3u2Xs1';
+    }
+
+		match /artistStatements/{artistStatement} {
+    	allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == 't0JEI9gKoLPk3dgC03aFwn3u2Xs1';
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

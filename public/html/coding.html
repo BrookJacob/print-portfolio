@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="theme-color" content="#FFFFFF">
+  <title>Jacob Brook - Coding</title>
+  <link rel="stylesheet" href="../css/coding-style.css">
+</head>
+
+<body>
+  <header>
+    <div class="header-container">
+      <div class="site-title">
+        <h1>Jacob Brook</h1>
+      </div>
+      <nav class="main-navigation">
+        <ul class="site-menu">
+          <li><a href="#prints-section">Prints</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#contact">Contact</a></li>
+          <li><a href="/prints" rel="noopener noreferrer">Prints</a></li> 
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section id="prints-section">
+      <h2>Prints</h2>
+      <div class="gallery-grid"></div>
+    </section>
+
+    <section id="about">
+      <h2>About</h2>
+      <div class="about-content">
+        <p>Your artist statement...</p>
+        <p>More details...</p>
+      </div>
+    </section>
+
+    <section id="contact">
+      <h2>Contact</h2>
+      <form id="contact-form" action="/api/sendMessage" method="POST">
+        <div class="form-group"><label for="name">Name:</label><input type="text" id="name" name="name" required></div>
+        <div class="form-group"><label for="email">Email:</label><input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group"><label for="message">Message:</label><textarea id="message" name="message" rows="5"
+            required></textarea></div>
+        <button type="submit">Send Message</button>
+      </form>
+      <p id="form-status"></p>
+    </section>
+  </main>
+
+  <div id="lightbox" class="lightbox">
+    <button class="close-btn" aria-label="Close lightbox">&times;</button>
+    <div class="lightbox-content">
+      <img id="lightbox-img" src="" alt="Enlarged print">
+      <div id="lightbox-details">
+        <h3 id="lightbox-title"></h3>
+        <p id="lightbox-year"></p>
+        <p id="lightbox-dimensions"></p>
+        <p id="lightbox-price"></p>
+        <p id="lightbox-description"></p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved.</p>
+  </footer>
+
+  <script src="https://unpkg.com/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
+  <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-storage-compat.js"></script>
+  <script type="module">
+    
+    const firebaseConfig = {
+      apiKey: "AIzaSyAo3HnhE1L2OEg39_kGXMnEkGB6bvD2OSY",
+      authDomain: "print-portfolio-33ab1.firebaseapp.com",
+      projectId: "print-portfolio-33ab1",
+      storageBucket: "print-portfolio-33ab1.firebasestorage.app",
+      messagingSenderId: "99044661717",
+      appId: "1:99044661717:web:c241a6d855f4433620855c"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    // --- START: Connect to Emulators IF running locally ---
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      console.log("App is running locally. Connecting to Firebase Emulators.");
+
+      // Point Firestore SDK to Emulator
+      // Default Firestore emulator port is 8080
+      firebase.firestore().useEmulator("localhost", 8080);
+      console.log("Firestore Emulator connected on port 8080");
+
+
+    } else {
+      console.log("App is running on deployed environment. Connecting to live Firebase services.");
+    }
+    // --- END: Connect to Emulators ---
+    const db = firebase.firestore();
+    const storage = firebase.storage();
+
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <script src="../js/script.js" defer></script>
+
+</body>
+
+</html>

@@ -1,0 +1,262 @@
+:root {
+    /* Fonts (Replace with your chosen fonts later) */
+    --font-primary: 'Helvetica Neue', Arial, sans-serif;
+    --font-secondary: Georgia, serif;
+
+    /* Colors (Adjust for your branding) */
+    --color-text: #333333;
+    --color-headings: #1a1a1a;
+    --color-background: #f9f9f9;
+    /* CHANGED: Subtle off-white background */
+    --color-accent: #008080;
+    /* CHANGED: Example accent - Deep Teal (REPLACE WITH YOURS!) */
+    --color-accent-dark: #006666;
+    /* ADDED: Darker shade for hover */
+    --color-border: #e0e0e0;
+    --color-overlay: rgba(0, 0, 0, 0.85);
+
+    /* Spacing */
+    --spacing-unit: 1rem;
+}
+
+/* === Basic Reset & Defaults === */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 100%;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-primary);
+    line-height: 1.6;
+    color: var(--color-text);
+    background-color: var(--color-background);
+    /* Uses updated variable */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+a {
+    color: var(--color-accent);
+    /* Uses updated variable */
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+/* Link hover will now use accent color (changed below in header nav section) */
+
+h1,
+h2,
+h3 {
+    font-family: var(--font-secondary);
+    color: var(--color-headings);
+    font-weight: bold;
+    margin-bottom: calc(var(--spacing-unit) * 1.5);
+    line-height: 1.2;
+}
+
+h1 {
+    font-size: 2.5rem;
+}
+
+h2 {
+    font-size: 2rem;
+    margin-top: calc(var(--spacing-unit) * 3);
+}
+
+h3 {
+    font-size: 1.5rem;
+}
+
+p {
+    margin-bottom: var(--spacing-unit);
+}
+
+section {
+    padding: calc(var(--spacing-unit) * 3) calc(var(--spacing-unit) * 1.5);
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* === Landing Page Modal === */
+.landing-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--color-background, #f9f9f9);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out, visibility 0s linear 0.5s; /* Updated for visibility */
+    visibility: visible; /* Added for transition */
+}
+
+.landing-modal.hidden {
+    opacity: 0;
+    visibility: hidden; /* Ensures it's not interactive when hidden */
+    /* pointer-events: none; /* This is also good, but visibility:hidden often covers it */
+}
+
+.modal-content-area {
+    display: flex;
+    align-items: center; /* Vertically align items in the center */
+    justify-content: center; /* Horizontally distribute space */
+    width: 80%; /* Or whatever width you prefer */
+    max-width: 1000px; /* Max width for larger screens */
+    height: 100%;
+}
+
+.modal-name {
+    flex-basis: 45%; /* Takes up space on the left */
+    padding-right: 5%; /* Space before the divider */
+    text-align: right; /* Align name to the right, towards the center */
+}
+
+.modal-name h1 {
+    font-size: 4rem; /* Large text for the name */
+    color: var(--color-headings, #1a1a1a);
+    margin: 0; /* Remove default margins */
+    font-weight: bold; /* Make it bold as per typical site title */
+}
+
+.modal-divider {
+    width: 2px; /* Thickness of the divider */
+    background-color: var(--color-border, #e0e0e0);
+    height: 50%; /* Takes middle 50% of the vertical screen height */
+    align-self: center; /* Ensure it's centered vertically within the flex container */
+}
+
+.modal-choices {
+    flex-basis: 45%; /* Takes up space on the right */
+    padding-left: 5%; /* Space after the divider */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Center items vertically */
+    align-items: flex-start; /* Align items to the start of the column */
+    height: 50%; /* Match divider height for alignment */
+    position: relative; 
+    overflow: hidden; /* Keep hidden to contain any scaling overflow */
+}
+
+.choice-option {
+    font-size: 2.5rem; 
+    color: var(--color-text, #333333);
+    text-decoration: none;
+    padding: 15px 20px;
+    margin: 10px 0;
+    display: block; 
+    /* MODIFIED: Transition for transform and color */
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), color 0.3s ease;
+    /* MODIFIED: transform-origin to center for symmetrical scaling */
+    transform-origin: center center; 
+    position: relative; 
+    outline: none; 
+}
+
+/* Interaction styles */
+.choice-option:hover,
+.choice-option:focus {
+    color: var(--color-accent, #008080);
+    /* The transform will be handled by the .selected-choice class via JavaScript */
+}
+
+/* Style for when an option is "selected" by hover/focus */
+.choice-option.selected-choice {
+    transform: scale(1.1); /* MODIFIED: Only scale up */
+    color: var(--color-accent, #008080);
+    font-weight: bold;
+    z-index: 10; /* Ensure selected item is on top if they overlap slightly when scaling */
+}
+
+/* Styles for the "other" option when one is selected */
+.choice-option.other-choice-up,
+.choice-option.other-choice-down {
+    transform: scale(0.9); /* MODIFIED: Only scale down */
+    /* Color will be default unless also hovered/focused, which JS pointer-events logic handles */
+}
+
+/* Styles for the "other" option when one is selected */
+.choice-option.other-choice-up {
+    transform: translateY(-20%); /* Moves significantly up */
+}
+
+.choice-option.other-choice-down {
+    transform: translateY(20%); /* Moves significantly down */
+}
+
+
+@media (max-wdith: 768px) {
+    h1 {
+        font-size: 2rem;
+    }
+
+    h2 {
+        font-size: 1.75rem;
+    }
+
+    h3 {
+        font-size: 1.3rem;
+    }
+
+    .modal-content-area {
+        flex-direction: column;
+        width: 90%;
+        text-align: center;
+    }
+    .modal-name {
+        flex-basis: auto;
+        padding-right: 0;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .modal-name h1 {
+        font-size: 3rem;
+    }
+    .modal-divider {
+        width: 50%;
+        height: 2px;
+        margin: 1rem auto; 
+    }
+    .modal-choices {
+        flex-basis: auto;
+        padding-left: 0;
+        align-items: center; /* Center choices text */
+        height: auto;
+        overflow: hidden; /* MODIFIED: Changed from visible to hidden for consistency */
+    }
+    .choice-option {
+        font-size: 2rem;
+        text-align: center;
+        /* transform-origin: center center; /* Already set in base, inherited */
+    }
+
+    /* Responsive animation states - REMOVING position:absolute and translateX/Y */
+    .choice-option.other-choice-up,
+    .choice-option.other-choice-down {
+        transform: scale(0.9); /* MODIFIED: Only scale down, consistent with base */
+        /* position: absolute, left, translateX removed */
+    }
+    .choice-option.selected-choice {
+         transform: scale(1.1); /* MODIFIED: Only scale up, consistent with base */
+         z-index: 10; /* Ensure selected is on top */
+         /* position: absolute, left, translateX removed */
+    }
+}
