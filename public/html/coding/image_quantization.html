@@ -108,7 +108,7 @@
 
                 <h4>Python Code Powering the Demo:</h4>
                 <p>The following Python code is run in your browser using Pyodide to perform the image quantization.
-                    (The core functions like <code>numpy_mode</code> and <code>your_quantizer_sklearn_py</code> are
+                    (The core functions like <code>numpy_mode</code> and <code>quantizer_sklearn_py</code> are
                     defined here.)</p>
                 <pre><code id="pythonCodeForDisplay" class="language-python"></code></pre>
             </div>
@@ -156,10 +156,7 @@ def numpy_mode(arr):
         arr_int = arr_int[arr_int >= 0]
         if arr_int.size == 0:
             return 0
-    # Handle case where max index in arr_int might be large but counts are sparse
-    # bincount size is max(arr_int) + 1. Ensure it's not excessively large.
-    # Add a check or handle potential MemoryError if max(arr_int) is huge.
-    # For typical label indices (0 to num_colors-1), this should be fine.
+    
     try:
         counts = np.bincount(arr_int)
     except MemoryError:
@@ -188,10 +185,9 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
         js.console.error(f"Python: Error opening image: {str(e)}")
         return None
     
-    img = np.array(image_pil) # Renamed from img_np for consistency with your original code
+    img = np.array(image_pil)
     h_orig, w_orig, c = img.shape
 
-    # --- Padding --- (Your existing logic)
     pad_size = window_size_py // 2 # Use window_size_py
     padded_img = np.pad(
         img,
@@ -199,7 +195,6 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
         mode="edge",
     )
     h_padded, w_padded, _ = padded_img.shape
-    # js.updateProgress(10) # If using progress callback
 
     # --- K-Means Clustering ---
     img_array_padded = padded_img.reshape(h_padded * w_padded, c)
@@ -215,7 +210,7 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
         return output_buffer.getvalue()
 
     # Consider fewer n_init/max_iter for browser speed
-    kmeans = KMeans(n_clusters=num_colors_py, init="k-means++", n_init=3, random_state=0, max_iter=50) 
+    kmeans = KMeans(n_clusters=num_colors_py, init="k-means++", n_init=3, random_state=0, max_iter=10) 
     
     # Sample pixels for fitting KMeans
     img_array_sample = shuffle(img_array_orig, random_state=0, n_samples=n_samples)
@@ -232,7 +227,6 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
     labels_reshaped = labels.reshape(h_padded, w_padded) # Use h_padded, w_padded
 
     # --- Window Mode Calculation (SERIAL) ---
-    # Construct windows_for_mode (Your existing logic - ensure bounds are correct with h_orig, w_orig)
     windows_for_mode = np.zeros((h_orig, w_orig, window_size_py * window_size_py), dtype=labels.dtype)
     for i in range(h_orig):
         for j in range(w_orig):
@@ -244,7 +238,6 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
     
     js.console.log("Python: Starting serial mode calculation...")
     try:
-        # This uses your numpy_mode function
         most_common_labels = np.apply_along_axis(numpy_mode, axis=2, arr=windows_for_mode)
     except Exception as e:
         js.console.error(f"Python: Error during mode calculation: {str(e)}")
@@ -290,46 +283,8 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
     js.console.log("Python: Quantization function finished.")
     return output_buffer.getvalue()
 
-# Make sure this main function is available to JavaScript
-print("Python setup complete. 'your_quantizer_sklearn_py' is defined.")
-# No explicit 'set' to js.pyodide.globals needed here if JS calls it via runPythonAsync correctly.
-                    
 
-# This is the Python function that JavaScript will call.
-# It expects a PyProxy to the JS Uint8Array for image_bytes_proxy,
-# and standard Python numbers for num_colors_py and window_size_py.
-def quantize_image_placeholder_py(image_bytes_proxy, num_colors_py, window_size_py):
-    # Convert the PyProxy of JavaScript's Uint8Array to Python bytes
-    # This is crucial for PIL to read the image data.
-    try:
-        python_image_bytes = image_bytes_proxy.to_py()
-    except Exception as e:
-        import js
-        js.console.error(f"Python Error: Failed to convert image_bytes_proxy to Python bytes: {str(e)}")
-        return None
-
-    try:
-        img = Image.open(io.BytesIO(python_image_bytes))
-        img = img.convert("RGB") # Ensure RGB for consistent processing
-
-        # Simulate some processing (e.g., your quantization logic would go here)
-        output_img_array = np.array(img)
-        # Example: Invert colors as a placeholder for quantization
-        output_img_array = 255 - output_img_array
-        processed_img = Image.fromarray(output_img_array.astype(np.uint8))
-
-        # Convert processed PIL Image object back to bytes to return to JavaScript
-        output_buffer = io.BytesIO()
-        processed_img.save(output_buffer, format="PNG") # Save as PNG bytes
-        return output_buffer.getvalue() # Returns Python bytes object
-    except Exception as e:
-        # If an error occurs, print it to the JS console for debugging
-        import js
-        js.console.error(f"Python Error in quantize_image_placeholder_py: {str(e)}")
-        return None # Indicate failure
-
-# This print confirms the Python script in the textarea has run and defined the function.
-print("Python setup complete. 'quantize_image_placeholder_py' is defined and ready.")`
+print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
 pythonCodeDisplayElement.textContent = pyodidePythonScript;
 
         async function mainPyodide() {
