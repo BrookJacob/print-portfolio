@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interactive Python Image Quantizer - Jacob Brook</title>
     <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <style>
         /* Article-specific styles */
         body {
@@ -104,10 +106,36 @@
                     <img id="outputImage" src="#" alt="Quantized image will appear here" style="display:none;" />
                 </div>
 
-                <h4>Python Code to Run:</h4>
-                <p>For this demo, we'll adapt parts of your Python script. The full Tkinter GUI is replaced by this web
-                    page.</p>
-                <textarea id="pythonCode" spellcheck="false">
+                <h4>Python Code Powering the Demo:</h4>
+                <p>The following Python code is run in your browser using Pyodide to perform the image quantization.
+                    (The core functions like <code>numpy_mode</code> and <code>your_quantizer_sklearn_py</code> are
+                    defined here.)</p>
+                <pre><code id="pythonCodeForDisplay" class="language-python"></code></pre>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved.</p>
+    </footer>
+
+    <script>
+        // Update footer year
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        const statusDiv = document.getElementById('status');
+        const pythonCodeTextarea = document.getElementById('pythonCode');
+        const imageUploadInput = document.getElementById('imageUpload');
+        const originalImageEl = document.getElementById('originalImage');
+        const outputImageEl = document.getElementById('outputImage');
+        const quantizeButton = document.getElementById('quantizeButton');
+        const numColorsInput = document.getElementById('numColors');
+        const windowSizeInput = document.getElementById('windowSize');
+
+        let pyodide = null;
+        let originalImageBytes = null;
+
+        const pyodidePythonScript = `
 from PIL import Image
 import io
 import numpy as np
@@ -301,104 +329,88 @@ def quantize_image_placeholder_py(image_bytes_proxy, num_colors_py, window_size_
         return None # Indicate failure
 
 # This print confirms the Python script in the textarea has run and defined the function.
-print("Python setup complete. 'quantize_image_placeholder_py' is defined and ready.")
+print("Python setup complete. 'quantize_image_placeholder_py' is defined and ready.")`
 
-                </textarea>
-            </div>
-        </section>
-    </main>
+        async function mainPyodide() {
+            statusDiv.textContent = 'Pyodide Status: Loading...';
+            try {
+                pyodide = await loadPyodide();
+                statusDiv.textContent = 'Pyodide Status: Loaded. Loading packages (numpy, Pillow, scikit-learn)...';
+                // Pillow is often included with the full Pyodide distribution, 
+                // but explicitly loading ensures it.
+                await pyodide.loadPackage(['numpy', 'Pillow', 'scikit-learn']);
+                statusDiv.textContent = 'Pyodide Status: Packages loaded. Ready.';
 
-    <footer>
-        <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved.</p>
-    </footer>
+                // Run initial Python setup code from textarea
+                // This defines numpy_mode and your_quantizer_sklearn_py in Python global scope
+                await pyodide.runPythonAsync(pyodidePythonScript);
+                statusDiv.textContent = 'Pyodide Status: Python script from textarea executed.';
 
-    <script>
-        // Update footer year
-        document.getElementById('current-year').textContent = new Date().getFullYear();
-
-        const statusDiv = document.getElementById('status');
-        const pythonCodeTextarea = document.getElementById('pythonCode');
-        const imageUploadInput = document.getElementById('imageUpload');
-        const originalImageEl = document.getElementById('originalImage');
-        const outputImageEl = document.getElementById('outputImage');
-        const quantizeButton = document.getElementById('quantizeButton');
-        const numColorsInput = document.getElementById('numColors');
-        const windowSizeInput = document.getElementById('windowSize');
-
-        let pyodide = null;
-        let originalImageBytes = null;
-
-        async function main() {
-    statusDiv.textContent = 'Pyodide Status: Loading...';
-    try {
-        pyodide = await loadPyodide();
-        statusDiv.textContent = 'Pyodide Status: Loaded. Loading packages (numpy, Pillow, scikit-learn)...';
-        // Pillow is often included with the full Pyodide distribution, 
-        // but explicitly loading ensures it.
-        await pyodide.loadPackage(['numpy', 'Pillow', 'scikit-learn']); 
-        statusDiv.textContent = 'Pyodide Status: Packages loaded. Ready.';
-        
-        // Run initial Python setup code from textarea
-        // This defines numpy_mode and your_quantizer_sklearn_py in Python global scope
-        await pyodide.runPythonAsync(pythonCodeTextarea.value);
-        statusDiv.textContent = 'Pyodide Status: Python script from textarea executed.';
+                if (pythonCodeDisplayElement) {
+                    pythonCodeDisplayElement.textContent = pyodidePythonScript; // Put raw code into the <code>
+                    if (typeof hljs !== 'undefined') {
+                        hljs.highlightElement(pythonCodeDisplayElement); // Highlight this specific element
+                    } else {
+                        console.warn('highlight.js (hljs) not found. Code will not be highlighted.');
+                    }
+                }
 
 
-    } catch (error) {
-        statusDiv.textContent = `Pyodide Status: Error loading - ${error}`;
-        console.error("Pyodide loading error:", error);
-    }
-}
-main();
+            } catch (error) {
+                statusDiv.textContent = `Pyodide Status: Error loading - ${error}`;
+                console.error("Pyodide loading error:", error);
+            }
+        }
+        mainPyodide();
 
         imageUploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file) {
-    const MAX_WIDTH = 1024; // Define max dimensions
-    const MAX_HEIGHT = 1024;
-    const reader = new FileReader();
+                const MAX_WIDTH = 1024; // Define max dimensions
+                const MAX_HEIGHT = 1024;
+                const reader = new FileReader();
 
-    reader.onload = (e_load) => {
-        const img = new Image();
-        img.onload = () => {
-            let width = img.width;
-            let height = img.height;
+                reader.onload = (e_load) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
 
-            if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-                if (width / height > MAX_WIDTH / MAX_HEIGHT) {
-                    height = Math.round(height * MAX_WIDTH / width);
-                    width = MAX_WIDTH;
-                } else {
-                    width = Math.round(width * MAX_HEIGHT / height);
-                    height = MAX_HEIGHT;
-                }
+                        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+                            if (width / height > MAX_WIDTH / MAX_HEIGHT) {
+                                height = Math.round(height * MAX_WIDTH / width);
+                                width = MAX_WIDTH;
+                            } else {
+                                width = Math.round(width * MAX_HEIGHT / height);
+                                height = MAX_HEIGHT;
+                            }
+                        }
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Get resized image as data URL (then convert to bytes for Pyodide)
+                        const resizedDataUrl = canvas.toDataURL(file.type); // e.g., 'image/jpeg' or 'image/png'
+                        originalImageEl.src = resizedDataUrl; // Display resized original
+                        originalImageEl.style.display = 'block';
+
+                        // Convert data URL to Uint8Array for Python
+                        fetch(resizedDataUrl)
+                            .then(res => res.arrayBuffer())
+                            .then(arrayBuffer => {
+                                originalImageBytes = new Uint8Array(arrayBuffer);
+                                statusDiv.textContent = "Resized image ready for quantization.";
+                            });
+                    };
+                    img.src = e_load.target.result; // Original data URL to load into Image object
+                };
+                reader.readAsDataURL(file); // Read file to get data URL for Image object
+                outputImageEl.style.display = 'none';
+                outputImageEl.src = "#";
             }
-
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Get resized image as data URL (then convert to bytes for Pyodide)
-            const resizedDataUrl = canvas.toDataURL(file.type); // e.g., 'image/jpeg' or 'image/png'
-            originalImageEl.src = resizedDataUrl; // Display resized original
-            originalImageEl.style.display = 'block';
-
-            // Convert data URL to Uint8Array for Python
-            fetch(resizedDataUrl)
-                .then(res => res.arrayBuffer())
-                .then(arrayBuffer => {
-                    originalImageBytes = new Uint8Array(arrayBuffer);
-                    statusDiv.textContent = "Resized image ready for quantization.";
-                });
-        };
-        img.src = e_load.target.result; // Original data URL to load into Image object
-    };
-    reader.readAsDataURL(file); // Read file to get data URL for Image object
-    outputImageEl.style.display = 'none';
-    outputImageEl.src = "#";
-}
         });
 
         quantizeButton.addEventListener('click', async () => {
@@ -455,6 +467,17 @@ main();
             }
         });
 
+        document.addEventListener('DOMContentLoaded', (event) => {
+    // If you are using highlightAll() and it runs after mainPyodide sets the text content, it's fine.
+    // Otherwise, specific highlighting with hljs.highlightElement() as shown in mainPyodide() is more reliable.
+    // If mainPyodide runs on DOMContentLoaded or after, then the check within mainPyodide is sufficient.
+    // For safety, you can ensure hljs.highlightAll() is called if you have other code blocks.
+    if (typeof hljs !== 'undefined') {
+        // hljs.highlightAll(); // If you have other static code blocks
+    } else {
+        console.warn('highlight.js (hljs) not loaded by DOMContentLoaded.');
+    }
+});
     </script>
 </body>
 
