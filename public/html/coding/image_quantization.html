@@ -124,7 +124,7 @@
         document.getElementById('current-year').textContent = new Date().getFullYear();
 
         const statusDiv = document.getElementById('status');
-        const pythonCodeTextarea = document.getElementById('pythonCode');
+        const pythonCodeDisplayElement = document.getElementById('pythonCodeForDisplay');
         const imageUploadInput = document.getElementById('imageUpload');
         const originalImageEl = document.getElementById('originalImage');
         const outputImageEl = document.getElementById('outputImage');
@@ -330,6 +330,7 @@ def quantize_image_placeholder_py(image_bytes_proxy, num_colors_py, window_size_
 
 # This print confirms the Python script in the textarea has run and defined the function.
 print("Python setup complete. 'quantize_image_placeholder_py' is defined and ready.")`
+pythonCodeDisplayElement.textContent = pyodidePythonScript;
 
         async function mainPyodide() {
             statusDiv.textContent = 'Pyodide Status: Loading...';
