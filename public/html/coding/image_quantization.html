@@ -21,37 +21,172 @@
             border: 1px solid #ccc;
         }
 
-        #status {
-            margin-top: 10px;
-            font-style: italic;
-            color: #555;
+        #quantizerApp {
+            border: 1px solid #777;
+            border-radius: 4px;
+            overflow: hidden;
+            /* To contain rounded corners if children have backgrounds */
+            font-family: Arial, sans-serif;
+            /* Basic font */
+            max-width: 900px;
+            /* Or your preferred max width */
+            margin: 20px auto;
+            /* Center it */
         }
 
-        #outputImageContainer {
-            margin-top: 20px;
-            border: 1px dashed #aaa;
-            min-height: 200px;
+        #topControls {
+            background-color: #5a4a42;
+            /* Dark reddish-brown from screenshot */
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            /* Allow wrapping on smaller screens */
         }
 
-        img {
-            max-width: 100%;
-            display: block;
+        #topControls .control-group {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+            /* Space between control groups */
+            margin-bottom: 5px;
+            /* Space if they wrap */
         }
 
-        textarea {
-            width: 100%;
-            min-height: 150px;
+        #topControls label {
+            margin-right: 8px;
+            font-size: 0.9em;
+        }
+
+        #topControls input[type="range"] {
+            width: 100px;
+            /* Adjust as needed */
+            margin-right: 5px;
+        }
+
+        #topControls input.compact-input[type="number"] {
+            width: 50px;
+            /* Compact number input */
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            color: #333;
+            /* Text color for input field */
+        }
+
+        #topControls .action-buttons button.app-button {
+            background-color: #e0e0e0;
+            /* Light gray for buttons */
+            color: #333;
+            border: 1px solid #adadad;
+            padding: 5px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 8px;
+            font-size: 0.9em;
+        }
+
+        #topControls .action-buttons button.app-button:hover {
+            background-color: #d0d0d0;
+        }
+
+        #mainContentArea {
+            display: flex;
+            background-color: #f0f0f0;
+            /* Light gray background for the content area */
+            min-height: 400px;
+            /* Example minimum height */
+        }
+
+        #leftSidebar {
+            width: 200px;
+            /* Width of the left sidebar */
+            background-color: #e9e9e9;
+            /* Slightly different gray for sidebar */
+            padding: 15px;
+            border-right: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #leftSidebar .sidebar-control-group {
+            display: flex;
+            align-items: center;
             margin-bottom: 10px;
         }
 
-        button {
-            padding: 8px 15px;
+        #leftSidebar .sidebar-control-group label {
+            margin-left: 5px;
+        }
+
+
+        #manualColorsCountLabel {
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        #paletteDisplayArea {
+            flex-grow: 1;
+            /* Allow palette area to take remaining space in sidebar */
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 5px;
+            min-height: 150px;
+            /* Example height */
+            overflow-y: auto;
+            /* Scroll if many colors */
+        }
+
+        #paletteDisplayArea .palette-placeholder {
+            color: #999;
+            text-align: center;
+            font-size: 0.9em;
             margin-top: 10px;
         }
 
-        .controls label {
-            display: block;
-            margin-top: 10px;
+
+        #imageDisplayArea {
+            flex-grow: 1;
+            /* Takes remaining width */
+            padding: 15px;
+            background-color: #d3d3d3;
+            /* Medium gray for image background area */
+            display: flex;
+            flex-direction: column;
+            /* Stack original and quantized image areas */
+            align-items: center;
+            /* Center image containers if they are narrower */
+            gap: 15px;
+            /* Space between original and quantized image sections */
+        }
+
+        #imageDisplayArea .image-container {
+            width: 100%;
+            text-align: center;
+        }
+
+        #imageDisplayArea .image-container h4 {
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        #imageDisplayArea img {
+            max-width: 100%;
+            max-height: 300px;
+            /* Adjust max height for displayed images */
+            border: 1px solid #bbb;
+            background-color: white;
+            /* If image is transparent */
+            object-fit: contain;
+            /* Ensure image fits and aspect ratio is maintained */
+        }
+
+        /* Ensure consistent font size for status */
+        #status {
+            font-size: 0.9em;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
@@ -61,7 +196,7 @@
     <header>
         <div class="header-container">
             <div class="site-title">
-                <h1><a href="/coding">Jacob Brook - Practical Coding</a></h1>
+                <h1><a href="/coding">Jacob Brook - Coding</a></h1>
             </div>
             <nav class="main-navigation">
                 <ul class="site-menu">
@@ -74,36 +209,68 @@
 
     <main>
         <section class="article-content">
+            <h2>Image Color Quantization with Window Averaging</h2>
+
+            <a href="#final-interactive-area" class="link-button">Jump to the interactive area!</a>
+            <br>
+            <br>
+            <p>Image quantization is a simple lossy compression technique in which a range colors in a given image is
+                reduced to a smaller range of colors. Useful for formatting images for certain displays and in
+                image compression. I find it particularly useful in severely limiting colors in images that I would like
+                to
+                make a <a href="/prints">print</a> out of. Along with the window averaging functionality, I've found
+                that the image quantizer creates a great simplified image.</p>
+            <br>
+            <p>I came across <a href="https://www.photopea.com/">Photopea's</a> image quantizer when looking for a way
+                to simplify an image and figured I would create my own image quantizer as coding a challenge. Along with
+                Tkinter, I was able to make a simple GUI based application that allowed me to quantize images without
+                all the other fully fledged features of a dedicated image editor. This also allowed me add in a simple
+                window averaging function that lends itself to rounding out and simplifying harsh edges in images.</p>
+            <br>
+            <p></p>
+            <br>
             <h2>Interactive Image Quantizer Demo (Python in Browser)</h2>
             <p>The core functionality of the image quantizer is able to be run in the browser thanks to <a
                     href="https://pyodide.org/">Pyodide</a>.</p>
+            <div class="interactive-area" id="final-interactive-area">
+                <div id="quantizerApp">
+                    <div id="topControls">
+                        <div class="control-group">
+                            <label for="numColorsSlider">K-Means Colors:</label>
+                            <input type="range" id="numColorsSlider" min="2" max="50" value="8">
+                            <input type="number" id="numColorsInput" min="2" max="50" value="8" class="compact-input">
+                        </div>
+                        <div class="control-group">
+                            <label for="windowSizeSlider">Window Size:</label>
+                            <input type="range" id="windowSizeSlider" min="2" max="50" value="12">
+                            <input type="number" id="windowSizeInput" min="2" max="50" value="12" class="compact-input">
+                        </div>
+                        <div class="action-buttons">
+                            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                            <button id="openButton" class="app-button">Open</button>
+                            <button id="quantizeButton" class="app-button">Quantize</button>
+                            <button id="saveButton" class="app-button">Save</button>
+                        </div>
+                    </div>
 
-            <div class="interactive-area">
-                <h3>Try it Out!</h3>
-
-                <div class="controls">
-                    <label for="imageUpload">1. Upload an image:</label>
-                    <input type="file" id="imageUpload" accept="image/*">
-
-                    <label for="numColors">2. Number of Colors (K-Means):</label>
-                    <input type="number" id="numColors" value="8" min="2" max="50">
-
-                    <label for="windowSize">3. Window Size:</label>
-                    <input type="number" id="windowSize" value="12" min="2" max="50">
-
-                    <button id="quantizeButton">4. Quantize Image</button>
-                </div>
-
-                <div id="status">Pyodide Status: Not loaded yet.</div>
-
-                <h4>Original Image:</h4>
-                <div id="originalImageContainer">
-                    <img id="originalImage" src="#" alt="Original will appear here" style="display:none;" />
-                </div>
-
-                <h4>Quantized Image:</h4>
-                <div id="outputImageContainer">
-                    <img id="outputImage" src="#" alt="Quantized image will appear here" style="display:none;" />
+                    <div id="mainContentArea">
+                        <div id="leftSidebar">
+                            <div class="control-group sidebar-control-group">
+                                <input type="checkbox" id="manualColorsCheckbox">
+                                <label for="manualColorsCheckbox">Manual Colors</label>
+                            </div>
+                            <div id="manualColorsCountLabel">Manual Colors: 0</div>
+                            <div id="paletteDisplayArea"
+                                title="Color palette area (click image to add colors when manual mode is active)">
+                            </div>
+                        </div>
+                        <div id="imageDisplayArea">
+                            <div id="imageContainer" class="image-container">
+                                <img id="displayImage" src="#" alt="Image will appear here" style="display:none;" />
+                            </div>
+                        </div>
+                    </div>
+                    <div id="status" style="margin-top: 10px; text-align: center;">Pyodide Status: Not loaded yet.</div>
                 </div>
 
                 <h4>Python Code Powering the Demo:</h4>
@@ -126,8 +293,7 @@
         const statusDiv = document.getElementById('status');
         const pythonCodeDisplayElement = document.getElementById('pythonCodeForDisplay');
         const imageUploadInput = document.getElementById('imageUpload');
-        const originalImageEl = document.getElementById('originalImage');
-        const outputImageEl = document.getElementById('outputImage');
+        const displayImageEl = document.getElementById('displayImage');
         const quantizeButton = document.getElementById('quantizeButton');
         const numColorsInput = document.getElementById('numColors');
         const windowSizeInput = document.getElementById('windowSize');
@@ -285,7 +451,7 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
 
 
 print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
-pythonCodeDisplayElement.textContent = pyodidePythonScript;
+        pythonCodeDisplayElement.textContent = pyodidePythonScript;
 
         async function mainPyodide() {
             statusDiv.textContent = 'Pyodide Status: Loading...';
@@ -424,16 +590,16 @@ pythonCodeDisplayElement.textContent = pyodidePythonScript;
         });
 
         document.addEventListener('DOMContentLoaded', (event) => {
-    // If you are using highlightAll() and it runs after mainPyodide sets the text content, it's fine.
-    // Otherwise, specific highlighting with hljs.highlightElement() as shown in mainPyodide() is more reliable.
-    // If mainPyodide runs on DOMContentLoaded or after, then the check within mainPyodide is sufficient.
-    // For safety, you can ensure hljs.highlightAll() is called if you have other code blocks.
-    if (typeof hljs !== 'undefined') {
-        // hljs.highlightAll(); // If you have other static code blocks
-    } else {
-        console.warn('highlight.js (hljs) not loaded by DOMContentLoaded.');
-    }
-});
+            // If you are using highlightAll() and it runs after mainPyodide sets the text content, it's fine.
+            // Otherwise, specific highlighting with hljs.highlightElement() as shown in mainPyodide() is more reliable.
+            // If mainPyodide runs on DOMContentLoaded or after, then the check within mainPyodide is sufficient.
+            // For safety, you can ensure hljs.highlightAll() is called if you have other code blocks.
+            if (typeof hljs !== 'undefined') {
+                // hljs.highlightAll(); // If you have other static code blocks
+            } else {
+                console.warn('highlight.js (hljs) not loaded by DOMContentLoaded.');
+            }
+        });
     </script>
 </body>
 
