@@ -290,16 +290,33 @@
         // Update footer year
         document.getElementById('current-year').textContent = new Date().getFullYear();
 
+        // --- Main App and Status ---
         const statusDiv = document.getElementById('status');
         const pythonCodeDisplayElement = document.getElementById('pythonCodeForDisplay');
-        const imageUploadInput = document.getElementById('imageUpload');
-        const displayImageEl = document.getElementById('displayImage');
-        const quantizeButton = document.getElementById('quantizeButton');
-        const numColorsInput = document.getElementById('numColors');
-        const windowSizeInput = document.getElementById('windowSize');
 
+        // --- Top Controls ---
+        const imageUploadInput = document.getElementById('imageUpload'); // Remains, but is hidden
+        const openButton = document.getElementById('openButton');
+        const quantizeButton = document.getElementById('quantizeButton');
+        const saveButton = document.getElementById('saveButton');
+
+        const numColorsSlider = document.getElementById('numColorsSlider');
+        const numColorsInput = document.getElementById('numColorsInput'); // Matches new HTML
+        const windowSizeSlider = document.getElementById('windowSizeSlider');
+        const windowSizeInput = document.getElementById('windowSizeInput'); // Matches new HTML
+
+        // --- Left Sidebar ---
+        const manualColorsCheckbox = document.getElementById('manualColorsCheckbox');
+        const manualColorsCountLabel = document.getElementById('manualColorsCountLabel');
+        const paletteDisplayArea = document.getElementById('paletteDisplayArea');
+
+        // --- Image Display ---
+        const displayImageEl = document.getElementById('displayImage'); // Single display element
+
+        // --- Global Variables (from before, still relevant) ---
         let pyodide = null;
         let originalImageBytes = null;
+        let currentQuantizedBlob = null;
 
         const pyodidePythonScript = `
 from PIL import Image
@@ -453,7 +470,7 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
 print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
         pythonCodeDisplayElement.textContent = pyodidePythonScript;
 
-        async function mainPyodide() {
+        async function mainPyodideAppLogic() {
             statusDiv.textContent = 'Pyodide Status: Loading...';
             try {
                 pyodide = await loadPyodide();
@@ -483,12 +500,24 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
                 console.error("Pyodide loading error:", error);
             }
         }
-        mainPyodide();
+
+        openButton.addEventListener('click', () => {
+            imageUploadInput.click(); // Programmatically click the hidden file input
+        });
 
         imageUploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file) {
-                const MAX_WIDTH = 1024; // Define max dimensions
+                // Optional: Add MAX_FILE_SIZE_BYTES check here
+                // const MAX_FILE_SIZE_MB = 5;
+                // const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+                // if (file.size > MAX_FILE_SIZE_BYTES) {
+                //     alert(`File is too large (max ${MAX_FILE_SIZE_MB} MB). Please choose a smaller file.`);
+                //     imageUploadInput.value = ""; // Reset file input
+                //     return;
+                // }
+
+                const MAX_WIDTH = 1024;
                 const MAX_HEIGHT = 1024;
                 const reader = new FileReader();
 
@@ -514,24 +543,52 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        // Get resized image as data URL (then convert to bytes for Pyodide)
-                        const resizedDataUrl = canvas.toDataURL(file.type); // e.g., 'image/jpeg' or 'image/png'
-                        originalImageEl.src = resizedDataUrl; // Display resized original
-                        originalImageEl.style.display = 'block';
+                        const resizedDataUrl = canvas.toDataURL(file.type); // Or force 'image/png' or 'image/jpeg'
+
+                        // If displayImageEl was previously showing a blob URL (quantized image), revoke it
+                        if (displayImageEl.src && displayImageEl.src.startsWith('blob:')) {
+                            URL.revokeObjectURL(displayImageEl.src);
+                        }
+
+                        displayImageEl.src = resizedDataUrl; // Display the new (potentially resized) original image
+                        displayImageEl.style.display = 'block';
+                        // if (currentImageTitleEl) currentImageTitleEl.textContent = "Original Image"; // Optional
 
                         // Convert data URL to Uint8Array for Python
+                        // Note: Fetching a data URL is a common way to get its ArrayBuffer.
                         fetch(resizedDataUrl)
-                            .then(res => res.arrayBuffer())
+                            .then(res => {
+                                if (!res.ok) {
+                                    throw new Error(`HTTP error! status: ${res.status}`);
+                                }
+                                return res.arrayBuffer();
+                            })
                             .then(arrayBuffer => {
                                 originalImageBytes = new Uint8Array(arrayBuffer);
-                                statusDiv.textContent = "Resized image ready for quantization.";
+                                currentQuantizedBlob = null; // Reset any previous quantized result
+                                statusDiv.textContent = "Image ready for quantization.";
+                            })
+                            .catch(fetchError => {
+                                console.error("Error fetching resized image data URL for ArrayBuffer conversion:", fetchError);
+                                statusDiv.textContent = "Error processing image for upload.";
+                                originalImageBytes = null; // Ensure it's null on error
                             });
                     };
-                    img.src = e_load.target.result; // Original data URL to load into Image object
+                    img.onerror = () => {
+                        console.error("Error loading image into Image object.");
+                        statusDiv.textContent = "Could not load image file.";
+                        originalImageBytes = null;
+                        currentQuantizedBlob = null;
+                        displayImageEl.style.display = 'none';
+                        displayImageEl.src = "#";
+                    };
+                    img.src = e_load.target.result; // This is the result of reader.readAsDataURL(file)
                 };
-                reader.readAsDataURL(file); // Read file to get data URL for Image object
-                outputImageEl.style.display = 'none';
-                outputImageEl.src = "#";
+                reader.onerror = () => {
+                    console.error("Error reading file with FileReader.");
+                    statusDiv.textContent = "Error reading file.";
+                };
+                reader.readAsDataURL(file);
             }
         });
 
@@ -546,12 +603,12 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
             }
 
             statusDiv.textContent = "Quantizing... please wait.";
-            outputImageEl.style.display = 'none';
 
             try {
                 // Get parameters from HTML inputs
                 const numColors = parseInt(numColorsInput.value);
                 const windowSize = parseInt(windowSizeInput.value);
+                const useManualColors = manualColorsCheckbox.checked;
 
                 // Make the JavaScript Uint8Array (originalImageBytes) and other parameters
                 // available to the Python snippet that will call your function.
@@ -560,27 +617,30 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
                 pyodide.globals.set("js_image_bytes_for_python", originalImageBytes);
                 pyodide.globals.set("js_num_colors_for_python", numColors);
                 pyodide.globals.set("js_window_size_for_python", windowSize);
+                pyodide.globals.set("js_use_manual_colors_for_python", useManualColors);
 
                 // Call the Python function. The Python code string will retrieve the
                 // globals we just set and pass them to the Python function.
                 let resultBytesPyProxy = await pyodide.runPythonAsync(`quantizer_sklearn_py(js_image_bytes_for_python, js_num_colors_for_python, js_window_size_for_python)`);
 
                 if (resultBytesPyProxy) {
-                    // Convert Python bytes (PyProxy) to JavaScript Uint8Array
-                    const uint8Array = resultBytesPyProxy.toJs(); // Corrected line from previous discussion
+                    const uint8Array = resultBytesPyProxy.toJs();
+                    currentQuantizedBlob = new Blob([uint8Array], { type: 'image/png' }); // Store for saving
 
-                    const blob = new Blob([uint8Array], { type: 'image/png' });
-                    const imageUrl = URL.createObjectURL(blob);
-                    outputImageEl.src = imageUrl;
-                    outputImageEl.style.display = 'block';
+                    if (displayImageEl.src && displayImageEl.src.startsWith('blob:')) {
+                        URL.revokeObjectURL(displayImageEl.src); // Revoke previous quantized blob URL
+                    }
+
+                    const imageUrl = URL.createObjectURL(currentQuantizedBlob);
+                    displayImageEl.src = imageUrl; // Update display with quantized image
+                    // if (currentImageTitleEl) currentImageTitleEl.textContent = "Quantized Image";
                     statusDiv.textContent = "Quantization complete!";
 
-                    // Clean up the PyProxy to free memory
                     if (typeof resultBytesPyProxy.destroy === 'function') {
                         resultBytesPyProxy.destroy();
                     }
                 } else {
-                    statusDiv.textContent = "Quantization returned no data. Check console for Python errors.";
+                    statusDiv.textContent = "Quantization returned no data or failed. Check console.";
                 }
 
             } catch (error) {
@@ -589,10 +649,68 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
             }
         });
 
+        saveButton.addEventListener('click', () => {
+            if (currentQuantizedBlob) {
+                const downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(currentQuantizedBlob);
+
+                const numC = numColorsInput.value;
+                const winS = windowSizeInput.value;
+                const mode = manualColorsCheckbox.checked ? "manual" : "kmeans";
+                downloadLink.download = `quantized_${mode}_c${numC}_w${winS}.png`;
+
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(downloadLink.href); // Clean up
+            } else {
+                alert("No quantized image to save. Please quantize an image first.");
+            }
+        });
+
+        function syncInputs(sliderElement, numberInputElement) {
+            sliderElement.addEventListener('input', (event) => {
+                numberInputElement.value = event.target.value;
+            });
+            numberInputElement.addEventListener('change', (event) => {
+                let value = parseInt(event.target.value);
+                const min = parseInt(sliderElement.min);
+                const max = parseInt(sliderElement.max);
+
+                if (isNaN(value) || value < min) value = min;
+                if (value > max) value = max;
+
+                event.target.value = value; // Update input field with sanitized value
+                sliderElement.value = value; // Sync slider
+            });
+            // Initialize number input from slider's default value (if not already matching)
+            numberInputElement.value = sliderElement.value;
+        }
+
+        syncInputs(numColorsSlider, numColorsInput);
+        syncInputs(windowSizeSlider, windowSizeInput);
+
         document.addEventListener('DOMContentLoaded', (event) => {
+            // Call Pyodide initialization
+            mainPyodideAppLogic();
+
+            // Event listeners that depend on DOM elements being ready can also be here,
+            // though if the script is at the end of the body, elements are usually available.
+            // The current setup (listeners outside, mainPyodideAppLogic called directly) works
+            // because element selections happen at the top of the script.
+
+            const currentYearSpan = document.getElementById('current-year');
+            if (currentYearSpan) {
+                currentYearSpan.textContent = new Date().getFullYear();
+            }
+
+            // Initial state for K-Means controls based on checkbox (if needed)
+            const isManualInitial = manualColorsCheckbox.checked;
+            numColorsSlider.disabled = isManualInitial;
+            numColorsInput.disabled = isManualInitial;
             // If you are using highlightAll() and it runs after mainPyodide sets the text content, it's fine.
-            // Otherwise, specific highlighting with hljs.highlightElement() as shown in mainPyodide() is more reliable.
-            // If mainPyodide runs on DOMContentLoaded or after, then the check within mainPyodide is sufficient.
+            // Otherwise, specific highlighting with hljs.highlightElement() as shown in mainPyodideAppLogic() is more reliable.
+            // If mainPyodideAppLogic runs on DOMContentLoaded or after, then the check within mainPyodideAppLogic is sufficient.
             // For safety, you can ensure hljs.highlightAll() is called if you have other code blocks.
             if (typeof hljs !== 'undefined') {
                 // hljs.highlightAll(); // If you have other static code blocks
