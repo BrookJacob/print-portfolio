@@ -149,6 +149,7 @@ def numpy_mode(arr):
         return 0
     return np.argmax(counts)
 
+def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
     import js # For logging
     js.console.log(f"Python: Quantizing with K-Means: {num_colors_py} colors, Window: {window_size_py}")
 
@@ -328,27 +329,27 @@ print("Python setup complete. 'quantize_image_placeholder_py' is defined and rea
         let originalImageBytes = null;
 
         async function main() {
-            statusDiv.textContent = 'Pyodide Status: Loading...';
-            try {
-                pyodide = await loadPyodide();
-                statusDiv.textContent = 'Pyodide Status: Loaded. Loading packages...';
+    statusDiv.textContent = 'Pyodide Status: Loading...';
+    try {
+        pyodide = await loadPyodide();
+        statusDiv.textContent = 'Pyodide Status: Loaded. Loading packages (numpy, Pillow, scikit-learn)...';
+        // Pillow is often included with the full Pyodide distribution, 
+        // but explicitly loading ensures it.
+        await pyodide.loadPackage(['numpy', 'Pillow', 'scikit-learn']); 
+        statusDiv.textContent = 'Pyodide Status: Packages loaded. Ready.';
+        
+        // Run initial Python setup code from textarea
+        // This defines numpy_mode and your_quantizer_sklearn_py in Python global scope
+        await pyodide.runPythonAsync(pythonCodeTextarea.value);
+        statusDiv.textContent = 'Pyodide Status: Python script from textarea executed.';
 
-                // Load Python packages your code needs
-                // cv2 (OpenCV) is available as "opencv-python"
-                // sklearn is available as "scikit-learn"
-                await pyodide.loadPackage(['numpy', 'Pillow', 'scikit-learn']);
-                statusDiv.textContent = 'Pyodide Status: Packages loaded. Ready.';
 
-                // Run initial Python setup code from textarea
-                // (this makes quantize_image_placeholder_py available)
-                await pyodide.runPythonAsync(pythonCodeTextarea.value);
-
-            } catch (error) {
-                statusDiv.textContent = `Pyodide Status: Error loading - ${error}`;
-                console.error("Pyodide loading error:", error);
-            }
-        }
-        main(); // Initialize Pyodide
+    } catch (error) {
+        statusDiv.textContent = `Pyodide Status: Error loading - ${error}`;
+        console.error("Pyodide loading error:", error);
+    }
+}
+main();
 
         imageUploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
@@ -400,13 +401,7 @@ print("Python setup complete. 'quantize_image_placeholder_py' is defined and rea
 
                 // Call the Python function. The Python code string will retrieve the
                 // globals we just set and pass them to the Python function.
-                let resultBytesPyProxy = await pyodide.runPythonAsync(`
-    quantize_image_placeholder_py(
-        js_image_bytes_for_python, 
-        js_num_colors_for_python, 
-        js_window_size_for_python
-    )
-`);
+                let resultBytesPyProxy = await pyodide.runPythonAsync(`quantizer_sklearn_py(img_arg, colors_arg, window_arg)`);
 
                 if (resultBytesPyProxy) {
                     // Convert Python bytes (PyProxy) to JavaScript Uint8Array
