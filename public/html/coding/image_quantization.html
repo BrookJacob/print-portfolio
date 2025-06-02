@@ -248,14 +248,18 @@ print("Python setup complete. 'quantize_image_placeholder_py' is defined and rea
                 // Call the Python function. The Python code string will retrieve the
                 // globals we just set and pass them to the Python function.
                 let resultBytesPyProxy = await pyodide.runPythonAsync(`
-        # Retrieve the values set by JavaScript
-        img_bytes_arg = pyodide.globals.get('js_image_bytes_for_python')
-        num_colors_arg = pyodide.globals.get('js_num_colors_for_python')
-        win_size_arg = pyodide.globals.get('js_window_size_for_python')
-        
-        # Call the globally defined Python function from the textarea code
-        quantize_image_placeholder_py(img_bytes_arg, num_colors_arg, win_size_arg)
-    `);
+    # These variables (js_image_bytes_for_python, js_num_colors_for_python, js_window_size_for_python)
+    # are already in Python's global scope because JavaScript set them using pyodide.globals.set().
+    # Python can access them directly.
+    
+    # Call the globally defined Python function from the textarea code,
+    # passing the globally available variables as arguments.
+    quantize_image_placeholder_py(
+        js_image_bytes_for_python, 
+        js_num_colors_for_python, 
+        js_window_size_for_python
+    )
+`);
 
                 if (resultBytesPyProxy) {
                     // Convert Python bytes (PyProxy) to JavaScript Uint8Array
