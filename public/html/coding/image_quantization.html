@@ -112,6 +112,159 @@ from PIL import Image
 import io
 import numpy as np
 import pyodide
+from sklearn.cluster import KMeans
+from sklearn.utils import shuffle
+
+# --- Helper Function for NumPy Mode ---
+def numpy_mode(arr):
+    """
+    Calculates the mode (most frequent value) of a 1D array using NumPy.
+    Assumes non-negative integer inputs suitable for bincount.
+    """
+    if arr.size == 0:
+        return 0
+    arr_int = arr.astype(np.intp)
+    if np.any(arr_int < 0):
+        arr_int = arr_int[arr_int >= 0]
+        if arr_int.size == 0:
+            return 0
+    # Handle case where max index in arr_int might be large but counts are sparse
+    # bincount size is max(arr_int) + 1. Ensure it's not excessively large.
+    # Add a check or handle potential MemoryError if max(arr_int) is huge.
+    # For typical label indices (0 to num_colors-1), this should be fine.
+    try:
+        counts = np.bincount(arr_int)
+    except MemoryError:
+        print(
+            f"MemoryError in bincount. Max index: {np.max(arr_int)}. Array size: {arr_int.size}"
+        )
+        # Fallback or raise error - returning 0 might hide issues
+        # Find unique values and their counts as an alternative if bincount fails
+        unique_vals, counts = np.unique(arr_int, return_counts=True)
+        if unique_vals.size == 0:
+            return 0
+        return unique_vals[np.argmax(counts)]  # Return the value with max count
+
+    if counts.size == 0:
+        return 0
+    return np.argmax(counts)
+
+    import js # For logging
+    js.console.log(f"Python: Quantizing with K-Means: {num_colors_py} colors, Window: {window_size_py}")
+
+    try:
+        python_image_bytes = image_bytes_proxy.to_py()
+        image_pil = Image.open(io.BytesIO(python_image_bytes)).convert("RGB")
+    except Exception as e:
+        js.console.error(f"Python: Error opening image: {str(e)}")
+        return None
+    
+    img = np.array(image_pil) # Renamed from img_np for consistency with your original code
+    h_orig, w_orig, c = img.shape
+
+    # --- Padding --- (Your existing logic)
+    pad_size = window_size_py // 2 # Use window_size_py
+    padded_img = np.pad(
+        img,
+        ((pad_size, pad_size), (pad_size, pad_size), (0, 0)),
+        mode="edge",
+    )
+    h_padded, w_padded, _ = padded_img.shape
+    # js.updateProgress(10) # If using progress callback
+
+    # --- K-Means Clustering ---
+    img_array_padded = padded_img.reshape(h_padded * w_padded, c)
+    img_array_orig = img.reshape(h_orig * w_orig, c)
+    n_pixels = img_array_orig.shape[0]
+    n_samples = min(1000, n_pixels) # Or adjust sample size for browser performance
+
+    if n_samples <= 0:
+        js.console.warn("Python: Not enough pixels to sample for KMeans. Returning original.")
+        # Fallback: return original image bytes
+        output_buffer = io.BytesIO()
+        image_pil.save(output_buffer, format="PNG")
+        return output_buffer.getvalue()
+
+    # Consider fewer n_init/max_iter for browser speed
+    kmeans = KMeans(n_clusters=num_colors_py, init="k-means++", n_init=3, random_state=0, max_iter=50) 
+    
+    # Sample pixels for fitting KMeans
+    img_array_sample = shuffle(img_array_orig, random_state=0, n_samples=n_samples)
+    try:
+        kmeans.fit(img_array_sample)
+    except Exception as e:
+        js.console.error(f"Python: KMeans fit error: {str(e)}")
+        return None
+
+    labels = kmeans.predict(img_array_padded) # Predict on the full PADDED array
+    dominant_colors = np.clip(kmeans.cluster_centers_, 0, 255).astype(np.uint8)
+    # js.updateProgress(40)
+
+    labels_reshaped = labels.reshape(h_padded, w_padded) # Use h_padded, w_padded
+
+    # --- Window Mode Calculation (SERIAL) ---
+    # Construct windows_for_mode (Your existing logic - ensure bounds are correct with h_orig, w_orig)
+    windows_for_mode = np.zeros((h_orig, w_orig, window_size_py * window_size_py), dtype=labels.dtype)
+    for i in range(h_orig):
+        for j in range(w_orig):
+            # Extract window from labels_reshaped (which is based on padded image)
+            # The indices i, j here are for the *original* image dimensions
+            # So we need to map them to the padded labels_reshaped
+            window = labels_reshaped[i : i + window_size_py, j : j + window_size_py]
+            windows_for_mode[i, j, :] = window.flatten()
+    
+    js.console.log("Python: Starting serial mode calculation...")
+    try:
+        # This uses your numpy_mode function
+        most_common_labels = np.apply_along_axis(numpy_mode, axis=2, arr=windows_for_mode)
+    except Exception as e:
+        js.console.error(f"Python: Error during mode calculation: {str(e)}")
+        return None
+    js.console.log("Python: Mode calculation complete.")
+    # js.updateProgress(90)
+
+    # --- Create Quantized Image --- (Your existing logic for indexing with dominant_colors)
+    index_labels = most_common_labels.astype(np.intp) 
+    # Ensure index_labels is 2D matching original image dimensions if necessary, though apply_along_axis should preserve first N-1 dims.
+    # apply_along_axis on (h_orig, w_orig, N*N) with axis=2 will result in (h_orig, w_orig)
+    # So, index_labels.reshape(h_orig, w_orig) might not be needed if already 2D.
+    # Check shape: js.console.log(f"Python: index_labels shape: {index_labels.shape}")
+    
+    quantized_img = np.zeros_like(img) # Using the shape of the original unpadded 'img'
+
+    num_dominant_colors = dominant_colors.shape[0]
+    if num_dominant_colors > 0:
+        # Your separate channel indexing logic here...
+        # Make sure index_labels values are < num_dominant_colors
+        if np.any(index_labels >= num_dominant_colors):
+            js.console.error(f"Python: Error - label index out of bounds. Max label: {np.max(index_labels)}, Num colors: {num_dominant_colors}")
+            # Clip labels or handle error
+            index_labels = np.clip(index_labels, 0, num_dominant_colors - 1)
+
+        red_channel = dominant_colors[:, 0]
+        green_channel = dominant_colors[:, 1]
+        blue_channel = dominant_colors[:, 2]
+
+        quantized_img[:,:,0] = red_channel[index_labels]
+        quantized_img[:,:,1] = green_channel[index_labels]
+        quantized_img[:,:,2] = blue_channel[index_labels]
+    else:
+        js.console.warn("Python: No dominant colors found, result will be black or original.")
+        # Optionally return the original image or a black image if no colors
+        # For now, it will return the zeros_like(img) if num_dominant_colors is 0
+
+    # --- Output ---
+    quantized_img_pil = Image.fromarray(quantized_img.astype(np.uint8))
+    output_buffer = io.BytesIO()
+    quantized_img_pil.save(output_buffer, format="PNG")
+    # js.updateProgress(100)
+    js.console.log("Python: Quantization function finished.")
+    return output_buffer.getvalue()
+
+# Make sure this main function is available to JavaScript
+print("Python setup complete. 'your_quantizer_sklearn_py' is defined.")
+# No explicit 'set' to js.pyodide.globals needed here if JS calls it via runPythonAsync correctly.
+                    
 
 # This is the Python function that JavaScript will call.
 # It expects a PyProxy to the JS Uint8Array for image_bytes_proxy,
@@ -248,12 +401,6 @@ print("Python setup complete. 'quantize_image_placeholder_py' is defined and rea
                 // Call the Python function. The Python code string will retrieve the
                 // globals we just set and pass them to the Python function.
                 let resultBytesPyProxy = await pyodide.runPythonAsync(`
-    # These variables (js_image_bytes_for_python, js_num_colors_for_python, js_window_size_for_python)
-    # are already in Python's global scope because JavaScript set them using pyodide.globals.set().
-    # Python can access them directly.
-    
-    # Call the globally defined Python function from the textarea code,
-    # passing the globally available variables as arguments.
     quantize_image_placeholder_py(
         js_image_bytes_for_python, 
         js_num_colors_for_python, 
