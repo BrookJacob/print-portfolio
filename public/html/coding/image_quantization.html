@@ -176,7 +176,6 @@
 
         #imageDisplayArea img {
             max-width: 100%;
-            max-height: 300px;
             /* Adjust max height for displayed images */
             border: 1px solid #bbb;
             background-color: white;
@@ -287,6 +286,7 @@
         <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved.</p>
     </footer>
 
+    <script src="https://unpkg.com/@panzoom/panzoom@4.6.0/dist/panzoom.min.js"></script>
     <script>
         // Update footer year
         document.getElementById('current-year').textContent = new Date().getFullYear();
@@ -313,8 +313,10 @@
 
         // --- Image Display ---
         const displayImageEl = document.getElementById('displayImage'); // Single display element
+        const imageContainer = document.getElementById('imageContainer');
 
         // --- Global Variables (from before, still relevant) ---
+        let panzoomInstance = null; // To hold the Panzoom instance
         let pyodide = null;
         let originalImageBytes = null;
         let currentQuantizedBlob = null;
@@ -518,8 +520,8 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
                 //     return;
                 // }
 
-                const MAX_WIDTH = 1024;
-                const MAX_HEIGHT = 1024;
+                const MAX_WIDTH = 2048;
+                const MAX_HEIGHT = 2048;
                 const reader = new FileReader();
 
                 reader.onload = (e_load) => {
@@ -554,6 +556,12 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
                         displayImageEl.src = resizedDataUrl; // Display the new (potentially resized) original image
                         displayImageEl.style.display = 'block';
                         // if (currentImageTitleEl) currentImageTitleEl.textContent = "Original Image"; // Optional
+                        displayImageEl.onload = () => { // Ensure image is loaded before initializing panzoom
+                            initializePanzoom();
+                        };
+                        if (displayImageEl.complete) { // If already loaded (e.g. from cache or very fast)
+                            initializePanzoom();
+                        }
 
                         // Convert data URL to Uint8Array for Python
                         // Note: Fetching a data URL is a common way to get its ArrayBuffer.
@@ -690,6 +698,41 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
 
         syncInputs(numColorsSlider, numColorsInput);
         syncInputs(windowSizeSlider, windowSizeInput);
+
+        function initializePanzoom() {
+            if (panzoomInstance) {
+                panzoomInstance.destroy(); // Destroy previous instance if exists
+            }
+            if (displayImageEl && displayImageEl.src && displayImageEl.src !== '#' && displayImageEl.complete) {
+                panzoomInstance = Panzoom(displayImageEl, {
+                    maxScale: 5,
+                    minScale: 0.3,
+                    contain: 'outside', // Or 'inside', depending on desired behavior
+                    canvas: true,       // Recommended for <img> elements to use CSS transforms directly
+                    step: 0.2,          // Zoom step for wheel and API calls
+                    cursor: 'grab',
+                    // You might want to set startX, startY, startScale if the image
+                    // isn't initially centered or filling the container as desired.
+                    // Panzoom tries to center by default.
+                });
+                // Enable wheel zoom on the container
+                if (imageContainer) {
+                    imageContainer.addEventListener('wheel', function (event) {
+                        if (!event.shiftKey) { // Allow default scroll if Shift is held (optional)
+                            if (panzoomInstance) panzoomInstance.zoomWithWheel(event);
+                        }
+                    });
+                }
+                if (panzoomInstance) {
+                    panzoomInstance.reset(); // Apply initial scale and position
+                }
+
+            } else if (displayImageEl && (!displayImageEl.src || displayImageEl.src === '#')) {
+                // If no image src, ensure any old instance is gone
+                if (panzoomInstance) panzoomInstance.destroy();
+                panzoomInstance = null;
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', (event) => {
             // Call Pyodide initialization
