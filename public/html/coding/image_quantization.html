@@ -214,25 +214,87 @@
             <a href="#final-interactive-area" class="link-button">Jump to the interactive area!</a>
             <br>
             <br>
-            <p>Image quantization is a simple lossy compression technique in which a range colors in a given image is
-                reduced to a smaller range of colors. Useful for formatting images for certain displays and in
-                image compression. I find it particularly useful in severely limiting colors in images that I would like
-                to
-                make a <a href="/prints">print</a> out of. Along with the window averaging functionality, I've found
-                that the image quantizer creates a great simplified image.</p>
+            <p>Image quantization is a lossy compression technique that reduces the range of colors in an image, making
+                it useful for formatting images for specific displays and for general image compression. I find it
+                particularly effective for severely limiting colors in images intended for <a href="/prints">print</a>,
+                especially when combined with window averaging, which helps create a nicely simplified result by
+                smoothing harsh edges.</p>
             <br>
-            <p>I came across <a href="https://www.photopea.com/">Photopea's</a> image quantizer when looking for a way
-                to simplify an image and figured I would create my own image quantizer as coding a challenge. Along with
-                Tkinter, I was able to make a simple GUI based application that allowed me to quantize images without
-                all the other fully fledged features of a dedicated image editor. This also allowed me add in a simple
-                window averaging function that lends itself to rounding out and simplifying harsh edges in images.</p>
+            <p>My interest in developing a custom image quantizer was sparked when I encountered this feature in
+                <a href="https://www.photopea.com/">Photopea</a> while seeking a way to simplify images. To challenge
+                myself and create a focused tool without
+                the extensive features of a full image editor, I built a simple GUI python application using Tkinter.
+                This
+                allowed me to integrate the image quantization I needed with a straightforward window averaging
+                function, further enhancing the ability to round out and simplify images.
+            </p>
             <br>
-            <p></p>
+            <h3>Overall Architecture of the Application</h3>
+            <ol>
+                <li>
+                    <h4>Image Loading and Preparation</h4>
+                </li>
+                <br>
+                <p>Pillow (the successor to Python Image Library) is used to load the selected image file, which is then
+                    converted into a 3-dimensional NumPy Array. This array represents the image as a grid of pixels,
+                    with each pixel having a red, green, and blue (RGB) channel. This NumPy array is crucial for
+                    subsequent mathematical operations.</p><br>
+                <li>
+                    <h4>Color Palette Generation (via K-Means Clustering)</h4>
+                </li>
+                <br>
+                <p>K-Means clustering identifies a small set of "dominant" colors that best represent the original
+                    image's color distribution. Using the <code>Kmeans</code> function from <code>scikit-learn</code>, a
+                    predefined number of clusters is chosen, and the center of each cluster represents a dominant color.
+                    All together, these clusters represent the new limited color palette for the quantized image.</p>
+                <br>
+                <li>
+                    <h4>Initial Pixel Re-assignment (Labeling)</h4>
+                </li>
+                <br>
+                <p>This step reassigns every pixel in the original image to one of the new dominant colors found through
+                    the k-means clustering. Each pixel in the input image is compared against the dominant colors in the
+                    new palette. Each pixel is then assigned a new "label" representing the dominant color it is closest
+                    to. The resulting array of labels is effectively a simplified version of the image where each pixel
+                    is represented by an index into the new color palette rather than its full original color. Worth
+                    mentioning that this array is currently padded with extra empty pixels in order to make subsequent
+                    windowing step.</p>
+                <br>
+                <li>
+                    <h4>Window Mode Calculation (Smoothing and Refinement)</h4>
+                </li>
+                <br>
+                <p>Window averaging is used to help avoid heavily "speckled" images, and to round out harsh edges/small
+                    details that would be difficult to reproduce in a print. A virtual window (e.g. 12x12 pixels, as
+                    defined by the "Window Size" control) slides across the label array from the previous step. For each
+                    position of the window, the algorithm looks at all the pixel labels within the window.
+                    <code>numpy_mode</code> function is called on all the labels within the window to determine the most
+                    frequent label. The center pixel of the windows current position is then assigned the most frequent
+                    label. This means that the color of the center pixel is influenced by the color of its neighboring
+                    pixels, leading to smoother color regions. This is a computationally hefty operation, and on the
+                    desktop application, multiprocessing is used for speed on larger images, while the Pyodide version
+                    this computational operation is run serially. Also of note, is the fact that in browser, or the Pyodide
+                    version of the application resizes large images to a max dimension, height or width, of 2048 pixels.
+                    This helps the browser from hanging or becoming unresponsive.
+                </p>
+                <br>
+                <li>
+                    <h4>Final Image Construction</h4>
+                </li>
+                <br>
+                <p>The final step builds the visible quantized image from the refined label data and the dominant color
+                    palette. The array of refined labels (obtained from the previous windowed mode calculation) now
+                    dictates the color for each pixel. Each label (which is an index) is used to look up the
+                    corresponding RGB color from the K-Means dominant color palette. A new image is constructed with
+                    these colors, which is then converted back into a displayable image format (e.g., PNG) using Pillow,
+                    ready to be shown to the user.</p>
+
+            </ol>
             <br>
-            <h2>Interactive Image Quantizer Demo (Python in Browser)</h2>
+            <h2 id="final-interactive-area">Interactive Image Quantizer Demo (Python in Browser)</h2>
             <p>The core functionality of the image quantizer is able to be run in the browser thanks to <a
                     href="https://pyodide.org/">Pyodide</a>.</p>
-            <div class="interactive-area" id="final-interactive-area">
+            <div class="interactive-area">
                 <div id="quantizerApp">
                     <div id="topControls">
                         <div class="control-group">
