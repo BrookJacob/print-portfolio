@@ -91,7 +91,9 @@
                     </div>
                 </div>
 
-                <div id="mainContentArea"> <div id="imageDisplayArea"> <div id="imageTitle" class="image-container-title">Upload an image to begin</div>
+                <div id="mainContentArea">
+                    <div id="imageDisplayArea">
+                        <div id="imageTitle" class="image-container-title">Upload an image to begin</div>
                         <img id="displayImage" src="#" alt="Image will appear here" style="display:none;" />
                     </div>
                 </div>
@@ -107,6 +109,7 @@
         <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved.</p>
     </footer>
 
+    <script src="https://unpkg.com/@panzoom/panzoom@4.6.0/dist/panzoom.min.js"></script>
     <script>
         document.getElementById('current-year').textContent = new Date().getFullYear();
 
@@ -119,6 +122,7 @@
         const saveButton = document.getElementById('saveButton');
         const displayImageEl = document.getElementById('displayImage');
         const imageTitleEl = document.getElementById('imageTitle');
+        const imageDisplayArea = document.getElementById('imageDisplayArea');
 
         const gridSpacingSlider = document.getElementById('gridSpacingSlider');
         const gridSpacingInput = document.getElementById('gridSpacingInput');
@@ -382,6 +386,43 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
         }
         main();
 
+        function panzoomWheelHandler(event) {
+            if (panzoomInstance && !event.shiftKey) { // Zoom if shift key is NOT held
+                panzoomInstance.zoomWithWheel(event);
+            }
+        }
+
+        function initializePanzoom() {
+            if (panzoomInstance) {
+                panzoomInstance.destroy();
+                panzoomInstance = null;
+            }
+            // Ensure displayImageEl is visible and has a valid src (not '#' or empty)
+            if (displayImageEl && displayImageEl.style.display !== 'none' && displayImageEl.src && !displayImageEl.src.endsWith('#')) {
+                panzoomInstance = Panzoom(displayImageEl, {
+                    maxScale: 10,
+                    minScale: 0.1,
+                    contain: 'outside',
+                    canvas: true, // Recommended for img elements
+                    step: 0.25,
+                    cursor: 'move', // Use 'move' for panning indication
+                    // Set a specific panzoom parent if needed, otherwise it uses parentNode
+                    // panOnlyWhenZoomed: true, // Optional: only allow pan if zoomed
+                });
+                imageDisplayArea.removeEventListener('wheel', panzoomWheelHandler); // Remove old listener
+                imageDisplayArea.addEventListener('wheel', panzoomWheelHandler);    // Add new one
+                
+                // Reset panzoom to fit image after it's loaded and Panzoom is initialized
+                // Ensure this is called after the image dimensions are known to Panzoom
+                 setTimeout(() => { // A small timeout can help ensure dimensions are settled
+                    if(panzoomInstance) panzoomInstance.reset();
+                 }, 50);
+
+            } else {
+                 console.log("Panzoom: Image element not ready for Panzoom initialization.");
+            }
+        }
+
         function syncInputs(slider, input, isFloat = false, displayElement = null, displaySuffix = '') {
             slider.addEventListener('input', () => {
                 input.value = slider.value;
@@ -419,24 +460,31 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
         imageUploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    displayImageEl.src = e.target.result;
-                    displayImageEl.style.display = 'block';
-                    imageTitleEl.textContent = "Original Image";
-                    originalImageBytes = new Uint8Array(e.target.result); // This should be arrayBuffer
+                const readerBytes = new FileReader();
+                readerBytes.onload = (e_bytes) => {
+                    originalImageBytes = new Uint8Array(e_bytes.target.result);
+                    console.log("Image read as ArrayBuffer for Pyodide.");
                 };
-                // Read as ArrayBuffer for Pyodide, and separately as DataURL for display
-                reader.readAsArrayBuffer(file); 
+                readerBytes.onerror = (e) => { statusDiv.textContent = "Error reading file for processing."; console.error("FileReadError (ArrayBuffer):", e);};
+                readerBytes.readAsArrayBuffer(file);
 
                 const displayReader = new FileReader();
                 displayReader.onload = (e_display) => {
+                    if (displayImageEl.src && displayImageEl.src.startsWith('blob:')) {
+                        URL.revokeObjectURL(displayImageEl.src);
+                    }
                     displayImageEl.src = e_display.target.result;
                     displayImageEl.style.display = 'block';
-                    imageTitleEl.textContent = "Original Image";
-                }
+                    imageTitleEl.textContent = "Original Image (Preview)";
+                     // Initialize Panzoom once the image is loaded into the src attribute
+                    displayImageEl.onload = () => { initializePanzoom(); };
+                    // If image is already complete (e.g. from cache), initialize immediately
+                    if (displayImageEl.complete) { initializePanzoom(); }
+                };
+                displayReader.onerror = (e) => { statusDiv.textContent = "Error displaying image preview."; console.error("FileReadError (DataURL):", e);};
                 displayReader.readAsDataURL(file);
-                currentProcessedBlob = null; // Reset
+                
+                currentProcessedBlob = null;
             }
         });
 
