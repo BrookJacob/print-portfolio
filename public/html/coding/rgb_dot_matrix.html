@@ -9,25 +9,160 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <style>
-        #quantizerApp { border: 1px solid #777; border-radius: 4px; overflow: hidden; font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; }
-        #topControls { background-color: #5a4a42; color: white; padding: 10px 15px; display: flex; flex-direction: column; gap: 10px; /* Stack control groups */ }
-        #topControls .control-group { display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 5px; /* Add some space if they wrap fully */ }
-        #topControls .control-group label { margin-right: 8px; font-size: 0.9em; min-width: 160px; /* Adjusted for longer labels */ color: white; }
-        #topControls .control-group input[type="range"] { flex-grow: 1; min-width: 120px; margin-right: 5px; }
-        #topControls .control-group input.compact-input[type="number"] { width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; color: #333; text-align: right; }
-        #topControls .control-group input.compact-input[type="text"] { /* For opacity display */ width: 45px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; color: #333; background-color: #f0f0f0; }
-        #topControls .control-group input[type="checkbox"] { margin-right: 5px; }
-        
-        #topControls .action-buttons { display: flex; justify-content: flex-end; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 8px; }
-        #topControls .action-buttons button.app-button { background-color: #e0e0e0; color: #333; border: 1px solid #adadad; padding: 5px 12px; border-radius: 3px; cursor: pointer; font-size: 0.9em; }
-        #topControls .action-buttons button.app-button:hover { background-color: #d0d0d0; }
-        #mainContentArea { display: flex; background-color: #f0f0f0; min-height: 300px; }
-        #imageDisplayArea { flex-grow: 1; padding: 15px; background-color: #d3d3d3; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        #imageDisplayArea .image-container-title { font-size: 0.95em; color: #333; margin-bottom: 5px; text-align: center; font-weight: bold; }
-        #imageDisplayArea img { max-width: 100%; border: 1px solid #bbb; background-color: white; object-fit: contain; max-height: 400px; display: block; }
-        #status { font-size: 0.9em; background-color: #f0f0f0; color: #333; padding: 10px; text-align: center; border-top: 1px solid #ccc;}
+        #quantizerApp {
+            border: 1px solid #777;
+            border-radius: 4px;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+        }
 
-        #opacityControls.control-group { /* Ensure it takes full width for its content */ width: 100%; justify-content: flex-start; }
+        #topControls {
+            background-color: #5a4a42;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #topControls .control-group {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 5px;
+        }
+
+        #topControls .control-group label {
+            margin-right: 8px;
+            font-size: 0.9em;
+            min-width: 160px;
+            color: white;
+        }
+
+        #topControls .control-group input[type="range"] {
+            flex-grow: 1;
+            min-width: 120px;
+            margin-right: 5px;
+        }
+
+        #topControls .control-group input.compact-input[type="number"] {
+            width: 60px;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            color: #333;
+            text-align: right;
+        }
+
+        #topControls .control-group input.compact-input[type="text"] {
+            width: 45px;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            color: #333;
+            background-color: #f0f0f0;
+        }
+
+        #topControls .control-group input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        #topControls .action-buttons {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        #topControls .action-buttons button.app-button {
+            background-color: #e0e0e0;
+            color: #333;
+            border: 1px solid #adadad;
+            padding: 5px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        #topControls .action-buttons button.app-button:hover {
+            background-color: #d0d0d0;
+        }
+
+        #mainContentArea {
+            display: flex;
+            background-color: #f0f0f0;
+            min-height: 300px;
+        }
+
+        /* imageDisplayArea will be the panzoom container */
+        #imageDisplayArea {
+            flex-grow: 1;
+            padding: 15px;
+            background-color: #d3d3d3;
+            /* Matches image_quantization.html's image area bg */
+            display: flex;
+            flex-direction: column;
+            /* Stack title and imageContainer */
+            align-items: center;
+            /* Removed justify-content: center to let imageContainer define its height better */
+            gap: 10px;
+            min-height: 300px;
+            /* Or a height that suits your layout */
+            height: 100%;
+            /* Allow it to take up parent's height if possible */
+            overflow: hidden;
+            /* In case content inside tries to overflow, good for child panzoom */
+        }
+
+        #imageContainer {
+            /* This will be the Panzoom viewport for wheel events */
+            width: 100%;
+            height: calc(100% - 25px);
+            /* Adjust based on title height or set fixed/flex height */
+            /* Or use flex-grow: 1 if imageDisplayArea is also flex column and has space */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            /* Crucial for Panzoom's 'contain' option */
+            cursor: grab;
+            /* Indicate that this area is draggable */
+            position: relative;
+            /* For potential absolute positioned children if any */
+        }
+
+        #imageContainer img {
+            /* This is #displayImage */
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            /* Image will be contained within imageContainer */
+            object-fit: contain;
+            /* Scales image down to fit, maintains aspect ratio */
+            border: 1px solid #bbb;
+            background-color: white;
+            /* Visible if image has transparency */
+            /* Panzoom will apply transforms for panning and zooming */
+        }
+
+        #status {
+            font-size: 0.9em;
+            background-color: #f0f0f0;
+            color: #333;
+            padding: 10px;
+            text-align: center;
+            border-top: 1px solid #ccc;
+        }
+
+        #opacityControls.control-group {
+            /* Ensure it takes full width for its content */
+            width: 100%;
+            justify-content: flex-start;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
 </head>
@@ -50,9 +185,13 @@
     <main>
         <section class="article-content">
             <h2>Interactive RGB Dot Generator</h2>
-            <p>This tool processes an image to create an RGB triangular dot effect, simulating halftone patterns. Adjust the parameters below to see how they affect the output. The core logic runs in your browser using Python via Pyodide.</p>
+            <p>This tool processes an image to create an RGB triangular dot effect, simulating halftone patterns. Adjust
+                the parameters below to see how they affect the output. The core logic runs in your browser using Python
+                via Pyodide.</p>
 
-            <div id="quantizerApp"> <div id="topControls"> <div class="control-group">
+            <div id="quantizerApp">
+                <div id="topControls">
+                    <div class="control-group">
                         <label for="gridSpacingSlider">Grid Spacing:</label>
                         <input type="range" id="gridSpacingSlider" min="5" max="100" value="20">
                         <input type="number" id="gridSpacingInput" min="5" max="100" value="20" class="compact-input">
@@ -60,17 +199,19 @@
                     <div class="control-group">
                         <label for="scaleFactorSlider">Scale Factor (Dot Spread):</label>
                         <input type="range" id="scaleFactorSlider" min="0.01" max="1.0" value="0.80" step="0.01">
-                        <input type="number" id="scaleFactorInput" min="0.01" max="1.0" value="0.80" step="0.01" class="compact-input">
+                        <input type="number" id="scaleFactorInput" min="0.01" max="1.0" value="0.80" step="0.01"
+                            class="compact-input">
                     </div>
                     <div class="control-group">
                         <label for="maxDotRadiusSlider">Max Dot Radius:</label>
                         <input type="range" id="maxDotRadiusSlider" min="1" max="50" value="4">
                         <input type="number" id="maxDotRadiusInput" min="1" max="50" value="4" class="compact-input">
                     </div>
-                     <div class="control-group">
+                    <div class="control-group">
                         <label for="gammaSlider">Gamma Correction:</label>
                         <input type="range" id="gammaSlider" min="0.1" max="5.0" value="1.8" step="0.1">
-                        <input type="number" id="gammaInput" min="0.1" max="5.0" value="1.8" step="0.1" class="compact-input">
+                        <input type="number" id="gammaInput" min="0.1" max="5.0" value="1.8" step="0.1"
+                            class="compact-input">
                     </div>
                     <div class="control-group">
                         <label for="subsampleCheckbox">Sub-sample Dot Position:</label>
@@ -80,11 +221,14 @@
                         <label for="alphaCheckbox">Enable Alpha (Transparency):</label>
                         <input type="checkbox" id="alphaCheckbox">
                     </div>
-                    <div id="opacityControls" class="control-group" style="display: none;"> <label for="opacitySlider">Dot Opacity:</label>
+                    <div id="opacityControls" class="control-group" style="display: none;"> <label
+                            for="opacitySlider">Dot Opacity:</label>
                         <input type="range" id="opacitySlider" min="0" max="100" value="80" step="1">
-                        <input type="text" id="opacityInput" value="80%" readonly class="compact-input" style="width:45px; text-align:left;">
+                        <input type="text" id="opacityInput" value="80%" readonly class="compact-input"
+                            style="width:45px; text-align:left;">
                     </div>
-                    <div class="action-buttons"> <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                    <div class="action-buttons"> <input type="file" id="imageUpload" accept="image/*"
+                            style="display: none;">
                         <button id="openButton" class="app-button">Open Image</button>
                         <button id="processButton" class="app-button">Process Image</button>
                         <button id="saveButton" class="app-button">Save Image</button>
@@ -93,14 +237,17 @@
 
                 <div id="mainContentArea">
                     <div id="imageDisplayArea">
-                        <div id="imageTitle" class="image-container-title">Upload an image to begin</div>
-                        <img id="displayImage" src="#" alt="Image will appear here" style="display:none;" />
+                        <div id="imageContainer" class="image-container">
+                            <img id="displayImage" src="#" alt="Image will appear here" style="display:none;" />
+                        </div>
                     </div>
                 </div>
-                <div id="status">Pyodide: Initializing...</div> </div>
+                <div id="status">Pyodide: Initializing...</div>
+            </div>
 
             <h4>Python Code Powering the Demo:</h4>
-            <p>The core image processing logic from the original Tkinter application is used here, adapted to be called from JavaScript.</p>
+            <p>The core image processing logic from the original Tkinter application is used here, adapted to be called
+                from JavaScript.</p>
             <pre><code id="pythonCodeForDisplay" class="language-python"></code></pre>
         </section>
     </main>
@@ -115,14 +262,13 @@
 
         const statusDiv = document.getElementById('status'); // Updated ID
         const pythonCodeDisplayElement = document.getElementById('pythonCodeForDisplay');
-        
+
         const imageUploadInput = document.getElementById('imageUpload');
         const openButton = document.getElementById('openButton');
         const processButton = document.getElementById('processButton');
         const saveButton = document.getElementById('saveButton');
+        const imageDisplayArea = document.getElementById('imageDisplayArea'); const imageContainer = document.getElementById('imageContainer'); // NEW: For Panzoom wheel listener
         const displayImageEl = document.getElementById('displayImage');
-        const imageTitleEl = document.getElementById('imageTitle');
-        const imageDisplayArea = document.getElementById('imageDisplayArea');
 
         const gridSpacingSlider = document.getElementById('gridSpacingSlider');
         const gridSpacingInput = document.getElementById('gridSpacingInput');
@@ -141,6 +287,7 @@
         let pyodide = null;
         let originalImageBytes = null;
         let currentProcessedBlob = null;
+        let panzoomInstance = null;
         const DEFAULT_MIN_DOT_RADIUS = 1.0; // From Python script
 
         const pyodidePythonScript = `
@@ -371,9 +518,9 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
             try {
                 pyodide = await loadPyodide();
                 statusDiv.textContent = 'Pyodide: Runtime loaded. Loading packages (Pillow, NumPy)...';
-                await pyodide.loadPackage(['Pillow', 'numpy']); 
+                await pyodide.loadPackage(['Pillow', 'numpy']);
                 statusDiv.textContent = 'Pyodide: Packages loaded. Ready to process.';
-                
+
                 if (typeof hljs !== 'undefined') {
                     hljs.highlightElement(pythonCodeDisplayElement);
                 }
@@ -387,8 +534,12 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
         main();
 
         function panzoomWheelHandler(event) {
-            if (panzoomInstance && !event.shiftKey) { // Zoom if shift key is NOT held
-                panzoomInstance.zoomWithWheel(event);
+            // Check if the event is on the imageContainer or its children (like the image itself)
+            if (panzoomInstance && imageContainer.contains(event.target)) {
+                event.preventDefault(); // Crucial to prevent page scroll
+                if (!event.shiftKey) {
+                    panzoomInstance.zoomWithWheel(event);
+                }
             }
         }
 
@@ -397,29 +548,40 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
                 panzoomInstance.destroy();
                 panzoomInstance = null;
             }
-            // Ensure displayImageEl is visible and has a valid src (not '#' or empty)
-            if (displayImageEl && displayImageEl.style.display !== 'none' && displayImageEl.src && !displayImageEl.src.endsWith('#')) {
-                panzoomInstance = Panzoom(displayImageEl, {
+            // Ensure displayImageEl is loaded and visible
+            if (displayImageEl && displayImageEl.style.display !== 'none' && displayImageEl.src && !displayImageEl.src.endsWith('#') && displayImageEl.complete) {
+                panzoomInstance = Panzoom(displayImageEl, { // Target is still the <img>
                     maxScale: 10,
                     minScale: 0.1,
-                    contain: 'outside',
-                    canvas: true, // Recommended for img elements
+                    contain: 'outside', // Keeps behavior similar to image_quantization if it used this
+                    canvas: true,
                     step: 0.25,
-                    cursor: 'move', // Use 'move' for panning indication
-                    // Set a specific panzoom parent if needed, otherwise it uses parentNode
-                    // panOnlyWhenZoomed: true, // Optional: only allow pan if zoomed
+                    cursor: 'move',
+                    // Panzoom will automatically center the image if it's smaller than the viewport
+                    // No need for startX, startY usually if image is centered by CSS in its container
                 });
-                imageDisplayArea.removeEventListener('wheel', panzoomWheelHandler); // Remove old listener
-                imageDisplayArea.addEventListener('wheel', panzoomWheelHandler);    // Add new one
-                
-                // Reset panzoom to fit image after it's loaded and Panzoom is initialized
-                // Ensure this is called after the image dimensions are known to Panzoom
-                 setTimeout(() => { // A small timeout can help ensure dimensions are settled
-                    if(panzoomInstance) panzoomInstance.reset();
-                 }, 50);
 
+                // Attach wheel listener to the new imageContainer
+                if (imageContainer) {
+                    imageContainer.removeEventListener('wheel', panzoomWheelHandler); // Remove old one first
+                    imageContainer.addEventListener('wheel', panzoomWheelHandler);
+                }
+
+                // Reset to fit the image within the Panzoom viewport (displayImageEl)
+                // setTimeout helps ensure dimensions are fully updated in the DOM
+                setTimeout(() => {
+                    if (panzoomInstance) {
+                        panzoomInstance.reset();
+                    }
+                }, 100);
+            } else if (displayImageEl && displayImageEl.style.display !== 'none' && displayImageEl.src && !displayImageEl.src.endsWith('#') && !displayImageEl.complete) {
+                // If image src is set but image not yet loaded, wait for its onload event
+                displayImageEl.onload = initializePanzoom;
             } else {
-                 console.log("Panzoom: Image element not ready for Panzoom initialization.");
+                console.log("Panzoom: Image element not ready or src not valid for Panzoom initialization.");
+                if (imageContainer) { // If panzoom couldn't initialize, remove listener
+                    imageContainer.removeEventListener('wheel', panzoomWheelHandler);
+                }
             }
         }
 
@@ -439,7 +601,7 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
                 if (displayElement) displayElement.value = val + displaySuffix;
             });
             input.value = slider.value; // Initialize
-             if (displayElement) displayElement.value = slider.value + displaySuffix;
+            if (displayElement) displayElement.value = slider.value + displaySuffix;
         }
 
         syncInputs(gridSpacingSlider, gridSpacingInput);
@@ -465,7 +627,7 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
                     originalImageBytes = new Uint8Array(e_bytes.target.result);
                     console.log("Image read as ArrayBuffer for Pyodide.");
                 };
-                readerBytes.onerror = (e) => { statusDiv.textContent = "Error reading file for processing."; console.error("FileReadError (ArrayBuffer):", e);};
+                readerBytes.onerror = (e) => { statusDiv.textContent = "Error reading file for processing."; console.error("FileReadError (ArrayBuffer):", e); };
                 readerBytes.readAsArrayBuffer(file);
 
                 const displayReader = new FileReader();
@@ -475,15 +637,14 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
                     }
                     displayImageEl.src = e_display.target.result;
                     displayImageEl.style.display = 'block';
-                    imageTitleEl.textContent = "Original Image (Preview)";
-                     // Initialize Panzoom once the image is loaded into the src attribute
+                    // Initialize Panzoom once the image is loaded into the src attribute
                     displayImageEl.onload = () => { initializePanzoom(); };
                     // If image is already complete (e.g. from cache), initialize immediately
                     if (displayImageEl.complete) { initializePanzoom(); }
                 };
-                displayReader.onerror = (e) => { statusDiv.textContent = "Error displaying image preview."; console.error("FileReadError (DataURL):", e);};
+                displayReader.onerror = (e) => { statusDiv.textContent = "Error displaying image preview."; console.error("FileReadError (DataURL):", e); };
                 displayReader.readAsDataURL(file);
-                
+
                 currentProcessedBlob = null;
             }
         });
@@ -499,7 +660,7 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
                 const params = {
                     grid_spacing: parseInt(gridSpacingInput.value),
                     scale_factor: parseFloat(scaleFactorInput.value),
-                    min_dot_radius: DEFAULT_MIN_DOT_RADIUS, 
+                    min_dot_radius: DEFAULT_MIN_DOT_RADIUS,
                     max_dot_radius: parseInt(maxDotRadiusInput.value),
                     alpha_enabled: alphaCheckbox.checked,
                     opacity_percent: parseFloat(opacitySlider.value), // Use slider value for opacity
@@ -509,17 +670,17 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
 
                 // Ensure the Python function is available
                 if (typeof pyodide.globals.get('run_filter_pyodide') !== 'function') {
-                     // If not defined, re-run the script part that defines it.
-                     // This can happen if the page reloads or pyodide state is lost.
-                    pyodide.runPython(pyodidePythonScript.substring(0, pyodidePythonScript.indexOf("def run_filter_pyodide")+"def run_filter_pyodide".length + pyodidePythonScript.substring(pyodidePythonScript.indexOf("def run_filter_pyodide")).indexOf("):")+2 ) + pyodidePythonScript.substring(pyodidePythonScript.indexOf("def run_filter_pyodide")));
+                    // If not defined, re-run the script part that defines it.
+                    // This can happen if the page reloads or pyodide state is lost.
+                    pyodide.runPython(pyodidePythonScript.substring(0, pyodidePythonScript.indexOf("def run_filter_pyodide") + "def run_filter_pyodide".length + pyodidePythonScript.substring(pyodidePythonScript.indexOf("def run_filter_pyodide")).indexOf("):") + 2) + pyodidePythonScript.substring(pyodidePythonScript.indexOf("def run_filter_pyodide")));
 
-                     // Simpler re-run the whole script definitions if needed.
-                     // pyodide.runPython(pyodidePythonScript);
+                    // Simpler re-run the whole script definitions if needed.
+                    // pyodide.runPython(pyodidePythonScript);
                 }
 
 
                 let resultBytesPyProxy = await pyodide.globals.get('run_filter_pyodide')(
-                    originalImageBytes, 
+                    originalImageBytes,
                     params.grid_spacing, params.scale_factor, params.min_dot_radius, params.max_dot_radius,
                     params.alpha_enabled, params.opacity_percent, params.subsample_enabled, params.gamma
                 );
@@ -527,10 +688,9 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
                 if (resultBytesPyProxy) {
                     const uint8Array = resultBytesPyProxy.toJs(); // Transfer ownership if proxy supports it
                     currentProcessedBlob = new Blob([uint8Array], { type: 'image/png' });
-                    
+
                     if (displayImageEl.src.startsWith('blob:')) { URL.revokeObjectURL(displayImageEl.src); }
                     displayImageEl.src = URL.createObjectURL(currentProcessedBlob);
-                    imageTitleEl.textContent = "Processed Image";
                     statusDiv.textContent = 'Pyodide: Processing complete!';
                     // resultBytesPyProxy.destroy(); // Destroy proxy if not transferred
                 } else {
@@ -543,7 +703,7 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
                 processButton.disabled = false;
             }
         });
-        
+
         saveButton.addEventListener('click', () => {
             if (currentProcessedBlob) {
                 const link = document.createElement('a');
@@ -561,4 +721,5 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
 
     </script>
 </body>
+
 </html>
