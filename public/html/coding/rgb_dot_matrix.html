@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Python RGB Dot Generator - Jacob Brook</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <style>
+        #quantizerApp { border: 1px solid #777; border-radius: 4px; overflow: hidden; font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; }
+        #topControls { background-color: #5a4a42; color: white; padding: 10px 15px; display: flex; flex-direction: column; gap: 10px; /* Stack control groups */ }
+        #topControls .control-group { display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 5px; /* Add some space if they wrap fully */ }
+        #topControls .control-group label { margin-right: 8px; font-size: 0.9em; min-width: 160px; /* Adjusted for longer labels */ color: white; }
+        #topControls .control-group input[type="range"] { flex-grow: 1; min-width: 120px; margin-right: 5px; }
+        #topControls .control-group input.compact-input[type="number"] { width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; color: #333; text-align: right; }
+        #topControls .control-group input.compact-input[type="text"] { /* For opacity display */ width: 45px; padding: 4px; border: 1px solid #ccc; border-radius: 3px; color: #333; background-color: #f0f0f0; }
+        #topControls .control-group input[type="checkbox"] { margin-right: 5px; }
+        
+        #topControls .action-buttons { display: flex; justify-content: flex-end; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 8px; }
+        #topControls .action-buttons button.app-button { background-color: #e0e0e0; color: #333; border: 1px solid #adadad; padding: 5px 12px; border-radius: 3px; cursor: pointer; font-size: 0.9em; }
+        #topControls .action-buttons button.app-button:hover { background-color: #d0d0d0; }
+        #mainContentArea { display: flex; background-color: #f0f0f0; min-height: 300px; }
+        #imageDisplayArea { flex-grow: 1; padding: 15px; background-color: #d3d3d3; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        #imageDisplayArea .image-container-title { font-size: 0.95em; color: #333; margin-bottom: 5px; text-align: center; font-weight: bold; }
+        #imageDisplayArea img { max-width: 100%; border: 1px solid #bbb; background-color: white; object-fit: contain; max-height: 400px; display: block; }
+        #status { font-size: 0.9em; background-color: #f0f0f0; color: #333; padding: 10px; text-align: center; border-top: 1px solid #ccc;}
+
+        #opacityControls.control-group { /* Ensure it takes full width for its content */ width: 100%; justify-content: flex-start; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+</head>
+
+<body>
+    <header>
+        <div class="header-container">
+            <div class="site-title">
+                <h1><a href="/coding">Jacob Brook - Coding</a></h1>
+            </div>
+            <nav class="main-navigation">
+                <ul class="site-menu">
+                    <li><a href="/prints">Prints</a></li>
+                    <li><a href="/coding">Back to Coding Hub</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="article-content">
+            <h2>Interactive RGB Dot Generator</h2>
+            <p>This tool processes an image to create an RGB triangular dot effect, simulating halftone patterns. Adjust the parameters below to see how they affect the output. The core logic runs in your browser using Python via Pyodide.</p>
+
+            <div id="quantizerApp"> <div id="topControls"> <div class="control-group">
+                        <label for="gridSpacingSlider">Grid Spacing:</label>
+                        <input type="range" id="gridSpacingSlider" min="5" max="100" value="20">
+                        <input type="number" id="gridSpacingInput" min="5" max="100" value="20" class="compact-input">
+                    </div>
+                    <div class="control-group">
+                        <label for="scaleFactorSlider">Scale Factor (Dot Spread):</label>
+                        <input type="range" id="scaleFactorSlider" min="0.01" max="1.0" value="0.80" step="0.01">
+                        <input type="number" id="scaleFactorInput" min="0.01" max="1.0" value="0.80" step="0.01" class="compact-input">
+                    </div>
+                    <div class="control-group">
+                        <label for="maxDotRadiusSlider">Max Dot Radius:</label>
+                        <input type="range" id="maxDotRadiusSlider" min="1" max="50" value="4">
+                        <input type="number" id="maxDotRadiusInput" min="1" max="50" value="4" class="compact-input">
+                    </div>
+                     <div class="control-group">
+                        <label for="gammaSlider">Gamma Correction:</label>
+                        <input type="range" id="gammaSlider" min="0.1" max="5.0" value="1.8" step="0.1">
+                        <input type="number" id="gammaInput" min="0.1" max="5.0" value="1.8" step="0.1" class="compact-input">
+                    </div>
+                    <div class="control-group">
+                        <label for="subsampleCheckbox">Sub-sample Dot Position:</label>
+                        <input type="checkbox" id="subsampleCheckbox">
+                    </div>
+                    <div class="control-group">
+                        <label for="alphaCheckbox">Enable Alpha (Transparency):</label>
+                        <input type="checkbox" id="alphaCheckbox">
+                    </div>
+                    <div id="opacityControls" class="control-group" style="display: none;"> <label for="opacitySlider">Dot Opacity:</label>
+                        <input type="range" id="opacitySlider" min="0" max="100" value="80" step="1">
+                        <input type="text" id="opacityInput" value="80%" readonly class="compact-input" style="width:45px; text-align:left;">
+                    </div>
+                    <div class="action-buttons"> <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                        <button id="openButton" class="app-button">Open Image</button>
+                        <button id="processButton" class="app-button">Process Image</button>
+                        <button id="saveButton" class="app-button">Save Image</button>
+                    </div>
+                </div>
+
+                <div id="mainContentArea"> <div id="imageDisplayArea"> <div id="imageTitle" class="image-container-title">Upload an image to begin</div>
+                        <img id="displayImage" src="#" alt="Image will appear here" style="display:none;" />
+                    </div>
+                </div>
+                <div id="status">Pyodide: Initializing...</div> </div>
+
+            <h4>Python Code Powering the Demo:</h4>
+            <p>The core image processing logic from the original Tkinter application is used here, adapted to be called from JavaScript.</p>
+            <pre><code id="pythonCodeForDisplay" class="language-python"></code></pre>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; <span id="current-year"></span> Jacob Brook. All Rights Reserved.</p>
+    </footer>
+
+    <script>
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        const statusDiv = document.getElementById('status'); // Updated ID
+        const pythonCodeDisplayElement = document.getElementById('pythonCodeForDisplay');
+        
+        const imageUploadInput = document.getElementById('imageUpload');
+        const openButton = document.getElementById('openButton');
+        const processButton = document.getElementById('processButton');
+        const saveButton = document.getElementById('saveButton');
+        const displayImageEl = document.getElementById('displayImage');
+        const imageTitleEl = document.getElementById('imageTitle');
+
+        const gridSpacingSlider = document.getElementById('gridSpacingSlider');
+        const gridSpacingInput = document.getElementById('gridSpacingInput');
+        const scaleFactorSlider = document.getElementById('scaleFactorSlider');
+        const scaleFactorInput = document.getElementById('scaleFactorInput');
+        const maxDotRadiusSlider = document.getElementById('maxDotRadiusSlider');
+        const maxDotRadiusInput = document.getElementById('maxDotRadiusInput');
+        const gammaSlider = document.getElementById('gammaSlider');
+        const gammaInput = document.getElementById('gammaInput');
+        const subsampleCheckbox = document.getElementById('subsampleCheckbox');
+        const alphaCheckbox = document.getElementById('alphaCheckbox');
+        const opacityControls = document.getElementById('opacityControls');
+        const opacitySlider = document.getElementById('opacitySlider');
+        const opacityInput = document.getElementById('opacityInput');
+
+        let pyodide = null;
+        let originalImageBytes = null;
+        let currentProcessedBlob = null;
+        const DEFAULT_MIN_DOT_RADIUS = 1.0; // From Python script
+
+        const pyodidePythonScript = `
+import io
+import math
+import js # For console logging
+from PIL import Image, ImageDraw # ImageFilter not used in core logic here
+import numpy as np
+
+print("Python RGB Dot Generator Core Logic Loaded for Pyodide")
+
+BACKGROUND_COLOR = (0, 0, 0) # Black background (used when alpha is off)
+DEFAULT_GAMMA = 1.8 
+
+def calculate_dot_radius(channel_value, min_radius, max_radius, gamma=DEFAULT_GAMMA):
+    if channel_value < 0: channel_value = 0
+    if channel_value > 255: channel_value = 255
+    if max_radius <= min_radius: return min_radius
+    normalized_value = channel_value / 255.0
+    if normalized_value == 0.0: gamma_corrected_value = 0.0
+    elif gamma == 1.0: gamma_corrected_value = normalized_value
+    else:
+        try: gamma_corrected_value = pow(normalized_value, gamma)
+        except ValueError:
+            js.console.warn(f"Gamma calc error: val={normalized_value}, gamma={gamma}")
+            gamma_corrected_value = normalized_value
+    return min_radius + gamma_corrected_value * (max_radius - min_radius)
+
+def get_average_color(image_pixels, width, height, box):
+    left, top, right, bottom = [max(0, int(round(c))) for c in box]
+    right = min(width, right)
+    bottom = min(height, bottom)
+    if left >= right or top >= bottom: return (0, 0, 0)
+    
+    # Slicing for speed if image_pixels is a NumPy array
+    if isinstance(image_pixels, np.ndarray):
+        if image_pixels.ndim == 3 and image_pixels.shape[2] >= 3: # Check for RGB/RGBA
+            pixel_slice = image_pixels[top:bottom, left:right, :3] # Take RGB
+            if pixel_slice.size == 0: return (0,0,0)
+            avg_colors = np.mean(pixel_slice, axis=(0,1))
+            return tuple(int(round(c)) for c in avg_colors)
+        else: # Fallback for unexpected numpy array structure
+            js.console.warn("get_average_color: Unexpected NumPy array structure.")
+            pass # Fall through to pixel iteration
+
+
+    # Fallback for PIL PixelAccess or other types
+    r_total, g_total, b_total = 0, 0, 0
+    pixel_count = 0
+    for y_sub in range(top, bottom):
+        for x_sub in range(left, right):
+            try:
+                r, g, b = image_pixels[x_sub, y_sub][:3] # Handle RGBA from PIL load
+                r_total += r; g_total += g; b_total += b
+                pixel_count += 1
+            except IndexError: continue
+    if pixel_count == 0: return (0, 0, 0)
+    return (r_total // pixel_count, g_total // pixel_count, b_total // pixel_count)
+
+def apply_effect_logic(input_pil_image, grid_spacing, scale_factor, min_radius, max_radius,
+                       alpha_enabled, opacity_percent, subsample_enabled, gamma=DEFAULT_GAMMA):
+    js.console.log(f"Python: apply_effect_logic called. Alpha: {alpha_enabled}, Opacity: {opacity_percent}%")
+    if not input_pil_image: raise ValueError("Input image is missing.")
+    width, height = input_pil_image.size
+    if width <= 0 or height <= 0: raise ValueError(f"Invalid image dimensions: {width}x{height}")
+
+    # Use NumPy array for potentially faster pixel access if input_pil_image is convertible
+    try:
+        # Convert to RGBA if it has alpha, otherwise RGB. This helps simplify pixel access.
+        # If already numpy, this path might be skipped if original_pixels is already an array.
+        img_for_sampling_np = np.array(input_pil_image.convert('RGBA')) 
+        original_pixels_np = img_for_sampling_np[:, :, :3] # Work with RGB for sampling
+    except Exception as e:
+        js.console.warn(f"Could not convert input to NumPy array, using PIL.load(): {e}")
+        # Fallback to PIL's load if NumPy conversion fails or for non-standard modes
+        # Ensure it's RGB for pixel sampling logic if not numpy
+        input_for_sampling_pil = input_pil_image
+        if input_for_sampling_pil.mode not in ['RGB', 'RGBA']:
+             input_for_sampling_pil = input_for_sampling_pil.convert('RGB')
+        original_pixels_pil = input_for_sampling_pil.load()
+        original_pixels_np = None # Flag that we're using PIL load
+
+
+    output_mode = "RGBA" if alpha_enabled else "RGB"
+    bg_color_tuple = (0, 0, 0, 255) if alpha_enabled else BACKGROUND_COLOR # Opaque black for RGBA base
+    output_img = Image.new(output_mode, (width, height), bg_color_tuple)
+    
+    # Layer setup for RGBA compositing
+    red_layer, green_layer, blue_layer = None, None, None
+    draw_r_ctx, draw_g_ctx, draw_b_ctx = None, None, None
+    direct_draw_ctx = None
+
+    if alpha_enabled:
+        red_layer = Image.new("RGBA", (width, height), (0,0,0,0))
+        green_layer = Image.new("RGBA", (width, height), (0,0,0,0))
+        blue_layer = Image.new("RGBA", (width, height), (0,0,0,0))
+        draw_r_ctx = ImageDraw.Draw(red_layer)
+        draw_g_ctx = ImageDraw.Draw(green_layer)
+        draw_b_ctx = ImageDraw.Draw(blue_layer)
+    else:
+        direct_draw_ctx = ImageDraw.Draw(output_img)
+
+    for y_grid in range(0, height, grid_spacing):
+        for x_grid in range(0, width, grid_spacing):
+            x0, y0 = float(x_grid), float(y_grid) # Use float for calculations
+            x1 = min(x0 + grid_spacing, float(width))
+            y1 = min(y0 + grid_spacing, float(height))
+            if x0 >= x1 or y0 >= y1: continue
+
+            # Sample color for radius calculation (center of cell)
+            cx_sample = int(x0 + (x1 - x0) / 2.0)
+            cy_sample = int(y0 + (y1 - y0) / 2.0)
+            cx_sample = max(0, min(width - 1, cx_sample))
+            cy_sample = max(0, min(height - 1, cy_sample))
+            
+            if original_pixels_np is not None:
+                r_center, g_center, b_center = original_pixels_np[cy_sample, cx_sample]
+            else: # Fallback to PIL load
+                r_center, g_center, b_center = original_pixels_pil[cx_sample, cy_sample][:3]
+
+
+            r_rad = calculate_dot_radius(r_center, min_radius, max_radius, gamma)
+            g_rad = calculate_dot_radius(g_center, min_radius, max_radius, gamma)
+            b_rad = calculate_dot_radius(b_center, min_radius, max_radius, gamma)
+
+            # Dot positions
+            cell_center_x, cell_center_y = x0 + (x1-x0)/2.0, y0 + (y1-y0)/2.0
+            default_pos = np.array([cell_center_x, cell_center_y], dtype=float)
+            pos_r, pos_g, pos_b = default_pos.copy(), default_pos.copy(), default_pos.copy()
+
+            current_pixel_source = original_pixels_np if original_pixels_np is not None else original_pixels_pil
+
+            if subsample_enabled:
+                xm, ym = x0 + (x1-x0)/2.0, y0 + (y1-y0)/2.0
+                sub_boxes = {'tl': (x0,y0,xm,ym), 'tr': (xm,y0,x1,ym), 'bl': (x0,ym,xm,y1), 'br': (xm,ym,x1,y1)}
+                sub_centers = {
+                    'tl': (x0+(xm-x0)/2.0, y0+(ym-y0)/2.0), 'tr': (xm+(x1-xm)/2.0, y0+(ym-y0)/2.0),
+                    'bl': (x0+(xm-x0)/2.0, ym+(y1-ym)/2.0), 'br': (xm+(x1-xm)/2.0, ym+(y1-ym)/2.0)
+                }
+                sub_dom = {}
+                for name, box in sub_boxes.items():
+                    ar,ag,ab = get_average_color(current_pixel_source, width, height, box)
+                    if ar>=ag and ar>=ab and ar>0: sub_dom[name]='r'
+                    elif ag>ar and ag>=ab and ag>0: sub_dom[name]='g'
+                    elif ab>ar and ab>ag and ab>0: sub_dom[name]='b'
+                    else: sub_dom[name]=None
+                
+                assigned = set()
+                for name in ['tl','tr','bl','br']: 
+                    if sub_dom.get(name)=='r' and name not in assigned: pos_r=np.array(sub_centers[name]); assigned.add(name); break
+                for name in ['tl','tr','bl','br']: 
+                    if sub_dom.get(name)=='g' and name not in assigned: pos_g=np.array(sub_centers[name]); assigned.add(name); break
+                for name in ['tl','tr','bl','br']: 
+                    if sub_dom.get(name)=='b' and name not in assigned: pos_b=np.array(sub_centers[name]); assigned.add(name); break
+            else: # Triangle
+                v1,v2,v3 = np.array([x0,y0]), np.array([x1,y0]), np.array([x0,y1])
+                centroid = default_pos
+                dot_pos_list = [centroid + scale_factor*(v-centroid) for v in [v1,v2,v3]]
+                if len(dot_pos_list)==3: pos_r, pos_g, pos_b = dot_pos_list[0], dot_pos_list[1], dot_pos_list[2]
+
+            dot_instructions = [
+                {'pos': pos_r, 'radius': r_rad, 'color': (255,0,0,255), 'ctx': draw_r_ctx if alpha_enabled else direct_draw_ctx},
+                {'pos': pos_g, 'radius': g_rad, 'color': (0,255,0,255), 'ctx': draw_g_ctx if alpha_enabled else direct_draw_ctx},
+                {'pos': pos_b, 'radius': b_rad, 'color': (0,0,255,255), 'ctx': draw_b_ctx if alpha_enabled else direct_draw_ctx}
+            ]
+            for d in dot_instructions:
+                if d['radius'] > 0 and d['ctx']:
+                    r = max(0.5, d['radius']) # Ensure radius is not zero for drawing
+                    x, y = d['pos']
+                    # Use integers for bounding box, round radius for ellipse
+                    # Pillow's ellipse takes [x0, y0, x1, y1]
+                    bbox = [int(round(x-r)), int(round(y-r)), int(round(x+r)), int(round(y+r))]
+                    if bbox[0] < bbox[2] and bbox[1] < bbox[3]: # Valid bbox
+                         fill_c = d['color'] if alpha_enabled else d['color'][:3]
+                         d['ctx'].ellipse(bbox, fill=fill_c, outline=None)
+    
+    if alpha_enabled:
+        final_alpha_val = int(round((max(0.0, min(100.0, opacity_percent)) / 100.0) * 255))
+        for layer in [red_layer, green_layer, blue_layer]:
+            if layer:
+                alpha_ch = layer.getchannel('A')
+                new_alpha_ch = Image.eval(alpha_ch, lambda p: final_alpha_val if p > 0 else 0)
+                layer.putalpha(new_alpha_ch)
+        if red_layer: output_img = Image.alpha_composite(output_img, red_layer)
+        if green_layer: output_img = Image.alpha_composite(output_img, green_layer)
+        if blue_layer: output_img = Image.alpha_composite(output_img, blue_layer)
+    
+    return output_img
+
+# This is the function JavaScript will call
+def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_radius, max_dot_radius, 
+                       alpha_enabled, opacity_percent, subsample_enabled, gamma):
+    js.console.log("Python: run_filter_pyodide called by JavaScript.")
+    try:
+        img_bytes = image_bytes_proxy.to_py() # Uint8Array from JS to Python bytes
+        pil_image = Image.open(io.BytesIO(img_bytes))
+        
+        # Ensure image is in a mode that apply_effect_logic expects (e.g., RGB or RGBA)
+        # apply_effect_logic itself handles further conversion if needed
+        if pil_image.mode == 'P': # Palette mode
+            pil_image = pil_image.convert('RGBA') 
+        elif pil_image.mode not in ('RGB', 'RGBA'):
+             pil_image = pil_image.convert('RGB')
+
+
+        processed_pil = apply_effect_logic(pil_image, grid_spacing, scale_factor, min_dot_radius, max_dot_radius,
+                                           alpha_enabled, opacity_percent, subsample_enabled, gamma)
+        if processed_pil:
+            buffer = io.BytesIO()
+            save_fmt = "PNG" # PNG supports alpha
+            processed_pil.save(buffer, format=save_fmt)
+            js.console.log(f"Python: Processing complete. Returning {save_fmt} bytes.")
+            return buffer.getvalue() # Return image as bytes
+        else:
+            js.console.error("Python: apply_effect_logic returned None.")
+            return None
+    except Exception as e:
+        js.console.error(f"Python Error in run_filter_pyodide: {str(e)}")
+        # For more detailed Python tracebacks in browser console:
+        # import traceback
+        # js.console.error(traceback.format_exc())
+        return None
+`
+        pythonCodeDisplayElement.textContent = pyodidePythonScript; // Set code for display
+
+        async function main() {
+            statusDiv.textContent = 'Pyodide: Loading runtime...';
+            try {
+                pyodide = await loadPyodide();
+                statusDiv.textContent = 'Pyodide: Runtime loaded. Loading packages (Pillow, NumPy)...';
+                await pyodide.loadPackage(['Pillow', 'numpy']); 
+                statusDiv.textContent = 'Pyodide: Packages loaded. Ready to process.';
+                
+                if (typeof hljs !== 'undefined') {
+                    hljs.highlightElement(pythonCodeDisplayElement);
+                }
+                // Make Python function callable from JS
+                pyodide.runPython(pyodidePythonScript); // Define functions in Python global scope
+            } catch (error) {
+                statusDiv.textContent = `Pyodide: Error - ${error}`;
+                console.error("Pyodide loading error:", error);
+            }
+        }
+        main();
+
+        function syncInputs(slider, input, isFloat = false, displayElement = null, displaySuffix = '') {
+            slider.addEventListener('input', () => {
+                input.value = slider.value;
+                if (displayElement) displayElement.value = slider.value + displaySuffix;
+            });
+            input.addEventListener('change', () => {
+                let val = isFloat ? parseFloat(input.value) : parseInt(input.value);
+                const min = isFloat ? parseFloat(slider.min) : parseInt(slider.min);
+                const max = isFloat ? parseFloat(slider.max) : parseInt(slider.max);
+                if (isNaN(val) || val < min) val = min;
+                if (val > max) val = max;
+                input.value = val;
+                slider.value = val;
+                if (displayElement) displayElement.value = val + displaySuffix;
+            });
+            input.value = slider.value; // Initialize
+             if (displayElement) displayElement.value = slider.value + displaySuffix;
+        }
+
+        syncInputs(gridSpacingSlider, gridSpacingInput);
+        syncInputs(scaleFactorSlider, scaleFactorInput, true);
+        syncInputs(maxDotRadiusSlider, maxDotRadiusInput);
+        syncInputs(gammaSlider, gammaInput, true);
+        syncInputs(opacitySlider, opacityInput, false, opacityInput, '%');
+
+
+        alphaCheckbox.addEventListener('change', () => {
+            opacityControls.style.display = alphaCheckbox.checked ? 'flex' : 'none';
+        });
+        opacityControls.style.display = alphaCheckbox.checked ? 'flex' : 'none'; // Initial check
+
+
+        openButton.addEventListener('click', () => imageUploadInput.click());
+
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    displayImageEl.src = e.target.result;
+                    displayImageEl.style.display = 'block';
+                    imageTitleEl.textContent = "Original Image";
+                    originalImageBytes = new Uint8Array(e.target.result); // This should be arrayBuffer
+                };
+                // Read as ArrayBuffer for Pyodide, and separately as DataURL for display
+                reader.readAsArrayBuffer(file); 
+
+                const displayReader = new FileReader();
+                displayReader.onload = (e_display) => {
+                    displayImageEl.src = e_display.target.result;
+                    displayImageEl.style.display = 'block';
+                    imageTitleEl.textContent = "Original Image";
+                }
+                displayReader.readAsDataURL(file);
+                currentProcessedBlob = null; // Reset
+            }
+        });
+
+        processButton.addEventListener('click', async () => {
+            if (!pyodide || !originalImageBytes) {
+                alert("Please load Pyodide and an image first.");
+                return;
+            }
+            statusDiv.textContent = 'Pyodide: Processing image...';
+            processButton.disabled = true;
+            try {
+                const params = {
+                    grid_spacing: parseInt(gridSpacingInput.value),
+                    scale_factor: parseFloat(scaleFactorInput.value),
+                    min_dot_radius: DEFAULT_MIN_DOT_RADIUS, 
+                    max_dot_radius: parseInt(maxDotRadiusInput.value),
+                    alpha_enabled: alphaCheckbox.checked,
+                    opacity_percent: parseFloat(opacitySlider.value), // Use slider value for opacity
+                    subsample_enabled: subsampleCheckbox.checked,
+                    gamma: parseFloat(gammaInput.value)
+                };
+
+                // Ensure the Python function is available
+                if (typeof pyodide.globals.get('run_filter_pyodide') !== 'function') {
+                     // If not defined, re-run the script part that defines it.
+                     // This can happen if the page reloads or pyodide state is lost.
+                    pyodide.runPython(pyodidePythonScript.substring(0, pyodidePythonScript.indexOf("def run_filter_pyodide")+"def run_filter_pyodide".length + pyodidePythonScript.substring(pyodidePythonScript.indexOf("def run_filter_pyodide")).indexOf("):")+2 ) + pyodidePythonScript.substring(pyodidePythonScript.indexOf("def run_filter_pyodide")));
+
+                     // Simpler re-run the whole script definitions if needed.
+                     // pyodide.runPython(pyodidePythonScript);
+                }
+
+
+                let resultBytesPyProxy = await pyodide.globals.get('run_filter_pyodide')(
+                    originalImageBytes, 
+                    params.grid_spacing, params.scale_factor, params.min_dot_radius, params.max_dot_radius,
+                    params.alpha_enabled, params.opacity_percent, params.subsample_enabled, params.gamma
+                );
+
+                if (resultBytesPyProxy) {
+                    const uint8Array = resultBytesPyProxy.toJs(); // Transfer ownership if proxy supports it
+                    currentProcessedBlob = new Blob([uint8Array], { type: 'image/png' });
+                    
+                    if (displayImageEl.src.startsWith('blob:')) { URL.revokeObjectURL(displayImageEl.src); }
+                    displayImageEl.src = URL.createObjectURL(currentProcessedBlob);
+                    imageTitleEl.textContent = "Processed Image";
+                    statusDiv.textContent = 'Pyodide: Processing complete!';
+                    // resultBytesPyProxy.destroy(); // Destroy proxy if not transferred
+                } else {
+                    statusDiv.textContent = 'Pyodide: Processing failed or no image returned. Check console.';
+                }
+            } catch (error) {
+                statusDiv.textContent = `Pyodide: Error processing - ${error}`;
+                console.error("JS error during processing:", error);
+            } finally {
+                processButton.disabled = false;
+            }
+        });
+        
+        saveButton.addEventListener('click', () => {
+            if (currentProcessedBlob) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(currentProcessedBlob);
+                const alphaStr = alphaCheckbox.checked ? `_alpha${opacitySlider.value}` : "";
+                link.download = `rgb_dots_g${gridSpacingInput.value}_s${scaleFactorInput.value}_r${maxDotRadiusInput.value}${alphaStr}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            } else {
+                alert("No processed image to save.");
+            }
+        });
+
+    </script>
+</body>
+</html>
