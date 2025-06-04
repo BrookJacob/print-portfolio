@@ -15,10 +15,14 @@
             padding: 20px;
         }
 
-        .interactive-area {
-            margin-top: 20px;
+        #interactive-area {
+            border: 1px solid #777;
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            background-color: #f0f0f0;
             padding: 15px;
-            border: 1px solid #ccc;
+            
         }
 
         #quantizerApp {
@@ -273,7 +277,8 @@
                     label. This means that the color of the center pixel is influenced by the color of its neighboring
                     pixels, leading to smoother color regions. This is a computationally hefty operation, and on the
                     desktop application, multiprocessing is used for speed on larger images, while the Pyodide version
-                    this computational operation is run serially. Also of note, is the fact that in browser, or the Pyodide
+                    this computational operation is run serially. Also of note, is the fact that in browser, or the
+                    Pyodide
                     version of the application resizes large images to a max dimension, height or width, of 2048 pixels.
                     This helps the browser from hanging or becoming unresponsive.
                 </p>
