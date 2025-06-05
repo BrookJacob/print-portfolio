@@ -15,6 +15,145 @@
             padding: 20px;
         }
 
+        ul {
+            padding-left: 20px;
+            /* Base indentation */
+            list-style-type: disc;
+            /* Default disc for the first level */
+            color: #333;
+            /* Default text color */
+        }
+
+        /* Styling for the second level of unordered lists */
+        ul ul {
+            padding-left: 25px;
+            /* Increase indentation for nested lists */
+            list-style-type: circle;
+            /* Different disc type for the second level */
+            color: #555;
+            /* Slightly different text color */
+        }
+
+        /* Styling for the third level of unordered lists */
+        ul ul ul {
+            padding-left: 30px;
+            /* Further increase indentation */
+            list-style-type: square;
+            /* Yet another disc type for the third level */
+            color: #777;
+            /* Even more different text color */
+        }
+
+        ol {
+            padding-left: 20px;
+            /* Default disc for the first level */
+            color: #333;
+            /* Default text color */
+        }
+
+        /* Styling for the second level of unordered lists */
+        ol ol {
+            padding-left: 25px;
+            /* Increase indentation for nested lists */
+            list-style-type: lower-alpha;
+            /* Different disc type for the second level */
+            color: #555;
+            /* Slightly different text color */
+        }
+
+        /* Styling for the third level of unordered lists */
+        ol ol ol {
+            padding-left: 30px;
+            /* Further increase indentation */
+        }
+
+        li {
+            margin-bottom: 5px;
+            /* Adds a little space between list items */
+        }
+
+        .article-content h2,
+        .article-content h3,
+        .article-content h4,
+        .article-content p,
+        .article-content ol,
+        .article-content ul,
+        .article-content pre {
+            margin-top: 0;
+            /* Reset top margin for calculation */
+            margin-bottom: 1em;
+            /* Default bottom spacing for most blocks */
+        }
+
+        .article-content h2 {
+            margin-top: 1.5em;
+            /* More space above main headings */
+            margin-bottom: 0.8em;
+        }
+
+        .article-content h3 {
+            margin-top: 1.2em;
+            /* More space above sub-headings */
+            margin-bottom: 0.6em;
+        }
+
+        .article-content h4 {
+            margin-top: 1em;
+            margin-bottom: 0.4em;
+        }
+
+        /* Ensure paragraphs immediately following headings don't have extra top space */
+        .article-content h2+p,
+        .article-content h3+p,
+        .article-content h4+p {
+            margin-top: 0;
+        }
+
+        /* Spacing for lists and list items */
+        .article-content ol,
+        .article-content ul {
+            padding-left: 2em;
+            /* Standard indentation for lists */
+        }
+
+        .article-content li {
+            margin-bottom: 0.75em;
+            /* Space between list items */
+        }
+
+        /* Spacing for code blocks (pre) - complements highlight.js styling */
+        .article-content pre {
+            margin-top: 0.5em;
+            /* Space above code block if following a paragraph */
+            margin-bottom: 1em;
+            /* Space below code block */
+            /* Your existing pre styles for background, padding, etc. from highlight.js are good */
+        }
+
+        /* Remove bottom margin from the last child of common containers if desired */
+        .article-content p:last-child,
+        .article-content ol:last-child,
+        .article-content ul:last-child,
+        .article-content pre:last-child,
+        .article-content li>p:last-child {
+            /* Paragraphs that are the last element in a list item */
+            margin-bottom: 0;
+        }
+
+        /* Specific fix for your structure where a <code> is followed by a <p> in a list item */
+        .article-content li>code+p {
+            margin-top: 0.25em;
+            /* Small space between the inline code and the paragraph in a list item */
+        }
+
+        /* Link button styling for better spacing */
+        .article-content .link-button {
+            display: inline-block;
+            /* Allows margin */
+            margin-bottom: 1.5em;
+            /* Space after the button */
+        }
+
         #interactive-area {
             border: 1px solid #777;
             font-family: Arial, sans-serif;
@@ -210,14 +349,13 @@
             <h2>Image Color Quantization with Window Averaging</h2>
 
             <a href="#final-interactive-area" class="link-button">Jump to the interactive demo!</a>
-            <br>
-            <br>
+
             <p>Image quantization is a lossy compression technique that reduces the range of colors in an image, making
                 it useful for formatting images for specific displays and for general image compression. I find it
                 particularly effective for severely limiting colors in images intended for <a href="/prints">print</a>,
-                especially when combined with window averaging, which helps create a nicely simplified result by
+                especially when combined with window averaging, which helps create a simplified result by
                 smoothing harsh edges.</p>
-            <br>
+
             <p>My interest in developing a custom image quantizer was sparked when I encountered this feature in
                 <a href="https://www.photopea.com/">Photopea</a> while seeking a way to simplify images. To challenge
                 myself and create a focused tool without
@@ -226,70 +364,592 @@
                 allowed me to integrate the image quantization I needed with a straightforward window averaging
                 function, further enhancing the ability to round out and simplify images.
             </p>
-            <br>
+
             <h3>Overall Architecture of the Application</h3>
             <ol>
                 <li>
                     <h4>Image Loading and Preparation</h4>
+                    <p>Pillow (the successor to Python Image Library) is used to load the selected image file, which is
+                        then
+                        converted into a 3-dimensional NumPy Array. This array represents the image as a grid of pixels,
+                        with each pixel having a red, green, and blue (RGB) channel. This NumPy array is crucial for
+                        subsequent mathematical operations.</p>
                 </li>
-                <br>
-                <p>Pillow (the successor to Python Image Library) is used to load the selected image file, which is then
-                    converted into a 3-dimensional NumPy Array. This array represents the image as a grid of pixels,
-                    with each pixel having a red, green, and blue (RGB) channel. This NumPy array is crucial for
-                    subsequent mathematical operations.</p><br>
+
                 <li>
                     <h4>Color Palette Generation (via K-Means Clustering)</h4>
+                    <p>K-Means clustering identifies a small set of "dominant" colors that best represent the original
+                        image's color distribution. Using the <code>Kmeans</code> function from
+                        <code>scikit-learn</code>, a
+                        predefined number of clusters is chosen, and the center of each cluster represents a dominant
+                        color.
+                        All together, these clusters represent the new limited color palette for the quantized image.
+                    </p>
                 </li>
-                <br>
-                <p>K-Means clustering identifies a small set of "dominant" colors that best represent the original
-                    image's color distribution. Using the <code>Kmeans</code> function from <code>scikit-learn</code>, a
-                    predefined number of clusters is chosen, and the center of each cluster represents a dominant color.
-                    All together, these clusters represent the new limited color palette for the quantized image.</p>
-                <br>
+
                 <li>
                     <h4>Initial Pixel Re-assignment (Labeling)</h4>
+                    <p>This step reassigns every pixel in the original image to one of the new dominant colors found
+                        through
+                        the k-means clustering. Each pixel in the input image is compared against the dominant colors in
+                        the
+                        new palette. Each pixel is then assigned a new "label" representing the dominant color it is
+                        closest
+                        to. The resulting array of labels is effectively a simplified version of the image where each
+                        pixel
+                        is represented by an index into the new color palette rather than its full original color. Worth
+                        mentioning that this array is currently padded with extra empty pixels in order to make
+                        subsequent
+                        windowing step.</p>
                 </li>
-                <br>
-                <p>This step reassigns every pixel in the original image to one of the new dominant colors found through
-                    the k-means clustering. Each pixel in the input image is compared against the dominant colors in the
-                    new palette. Each pixel is then assigned a new "label" representing the dominant color it is closest
-                    to. The resulting array of labels is effectively a simplified version of the image where each pixel
-                    is represented by an index into the new color palette rather than its full original color. Worth
-                    mentioning that this array is currently padded with extra empty pixels in order to make subsequent
-                    windowing step.</p>
-                <br>
+
                 <li>
                     <h4>Window Mode Calculation (Smoothing and Refinement)</h4>
+                    <p>Window averaging is used to help avoid heavily "speckled" images, and to round out harsh
+                        edges/small
+                        details that would be difficult to reproduce in a print. A virtual window (e.g. 12x12 pixels, as
+                        defined by the "Window Size" control) slides across the label array from the previous step. For
+                        each
+                        position of the window, the algorithm looks at all the pixel labels within the window.
+                        <code>numpy_mode</code> function is called on all the labels within the window to determine the
+                        most
+                        frequent label. The center pixel of the windows current position is then assigned the most
+                        frequent
+                        label. This means that the color of the center pixel is influenced by the color of its
+                        neighboring
+                        pixels, leading to smoother color regions. This is a computationally hefty operation, and on the
+                        desktop application, multiprocessing is used for speed on larger images, while the Pyodide
+                        version
+                        this computational operation is run serially. Also of note, is the fact that in browser, or the
+                        Pyodide
+                        version of the application resizes large images to a max dimension, height or width, of 2048
+                        pixels.
+                        This helps the browser from hanging or becoming unresponsive.
+                    </p>
                 </li>
-                <br>
-                <p>Window averaging is used to help avoid heavily "speckled" images, and to round out harsh edges/small
-                    details that would be difficult to reproduce in a print. A virtual window (e.g. 12x12 pixels, as
-                    defined by the "Window Size" control) slides across the label array from the previous step. For each
-                    position of the window, the algorithm looks at all the pixel labels within the window.
-                    <code>numpy_mode</code> function is called on all the labels within the window to determine the most
-                    frequent label. The center pixel of the windows current position is then assigned the most frequent
-                    label. This means that the color of the center pixel is influenced by the color of its neighboring
-                    pixels, leading to smoother color regions. This is a computationally hefty operation, and on the
-                    desktop application, multiprocessing is used for speed on larger images, while the Pyodide version
-                    this computational operation is run serially. Also of note, is the fact that in browser, or the
-                    Pyodide
-                    version of the application resizes large images to a max dimension, height or width, of 2048 pixels.
-                    This helps the browser from hanging or becoming unresponsive.
-                </p>
-                <br>
+
                 <li>
                     <h4>Final Image Construction</h4>
+                    <p>The final step builds the visible quantized image from the refined label data and the dominant
+                        color
+                        palette. The array of refined labels (obtained from the previous windowed mode calculation) now
+                        dictates the color for each pixel. Each label (which is an index) is used to look up the
+                        corresponding RGB color from the K-Means dominant color palette. A new image is constructed with
+                        these colors, which is then converted back into a displayable image format (e.g., PNG) using
+                        Pillow,
+                        ready to be shown to the user.</p>
                 </li>
-                <br>
-                <p>The final step builds the visible quantized image from the refined label data and the dominant color
-                    palette. The array of refined labels (obtained from the previous windowed mode calculation) now
-                    dictates the color for each pixel. Each label (which is an index) is used to look up the
-                    corresponding RGB color from the K-Means dominant color palette. A new image is constructed with
-                    these colors, which is then converted back into a displayable image format (e.g., PNG) using Pillow,
-                    ready to be shown to the user.</p>
-
             </ol>
-            <br>
+
+            <h3>Detailed Explanation of the Application</h3>
+            <ol>
+                <li>
+                    <h4>From Browser Bytes to a Python Image Object</h4>
+                    <p>When an image is loaded into the interactive demo, the browser provides the image data to our
+                        JavaScript code. This data can be accessed via <code>Uint8Aray</code>, which is then passed into
+                        the
+                        Python environment running in Pyodide.</p>
+                    <p>Python doesn't inherently understand image encoding, and that is why an image processing library
+                        is
+                        need. In this case, Pillow, a fork of PIL (Python Imaging Library), is used.</p>
+                    <pre><code class="pythonCodeDisplayElement language-python">from PIL import Image
+import io
+
+# Open the image from in-memory bytes
+image_pil = Image.open(io.BytesIO(python_image_bytes))
+
+# Ensure the image is in RGB format for consistent processing
+image_pil = image_pil.convert("RGB")</code></pre>
+                </li>
+
+                <li>
+                    <ul>
+                        <li><code class="pythonCodeDisplayElement language-python">io.BytesIO(python_image_bytes)</code>
+                            <p>This treats the raw bytes (which could be of any image format) as in-memory binary file.
+                            </p>
+                        </li>
+
+                        <li><code class="pythonCodeDisplayElement language-python">Image.open(...)</code>
+                            <p>Pillow reads the binary data and decodes it to create a PIL.Image.Image object. This
+                                object
+                                understands the image's dimensions, color mode, and pixel data.</p>
+                        </li>
+
+                        <li><code class="pythonCodeDisplayElement language-python">image_pil.convert("RGB")</code>
+                            <p>This is a standardization step. Since images can come in various color modes, converting
+                                to
+                                "RGB"
+                                ensures that we are consistently working with three color channels (Red, Green, and
+                                Blue),
+                                and
+                                discards an alpha channel if one is present.</p>
+                        </li>
+                    </ul>
+                    <p>At this point, <code class="pythonCodeDisplayElement language-python">image_pil</code> is a
+                        PIL.Image.Image
+                        object which is the starting point for many image manipulation tasks provided by Pillow.
+                        However,
+                        the image needs to be converted once again for intensive numerical operations required for
+                        K-Means
+                        clustering and window averaging.</p>
+                </li>
+                <li>
+                    <h4>NumPy Array Conversion: From Image to Array</h4>
+                    <p>This is where NumPy comes in. The image is converted from the Pillow <code
+                            class="pythonCodeDisplayElement language-python">Image</code> object to a NumPy array.</p>
+                    <pre><code class="pythonCodeDisplayElement language-python">from PIL import Image
+import numpy as np
+
+# Assuming 'image_pil' is the Pillow Image object from the previous step
+img_np = np.array(image_pil)
+
+# At this point, img_np typically has a shape like (height, width, 3)
+# For example, a 600x400 pixel image would be (400, 600, 3).</code></pre>
+
+                    <h4>Why Conversion to a NumPy Array is Important</h4>
+                    <ol>
+                        <li>
+                            <h5>Structured Representation of Pixel Data</h5>
+                            <p>A digital image is a grid of pixels. Each pixel has a color, which is typically
+                                represented
+                                by a
+                                numerical value. The NumPy array provides a direct and efficient way to store this grid.
+                            </p>
+                        </li>
+
+                        <li>
+                            <h5>The Three Dimensions Explained</h5>
+                            <p>The shape of <code class="pythonCodeDisplayElement language-python">img_np</code> array
+                                directly
+                                corresponds to the image's structure</p>
+                            <ul>
+                                <li>First Dimension (Height)
+                                    <p>Represents the number of rows of pixels in the image. If the shape is <code
+                                            class="pythonCodeDisplayElement language-python">(400, 600, 3)</code>, there
+                                        are
+                                        400
+                                        rows.</p>
+                                </li>
+                                <li>Second Dimension (Width)
+                                    <p>Represents the number of columns of pixels in the image. If the shape is <code
+                                            class="pythonCodeDisplayElement language-python">(400, 600, 3)</code>, there
+                                        are
+                                        600
+                                        columns.</p>
+                                </li>
+                                <li>Third Dimension (Color Channels)<p>For an RGB image (as ensured by <code
+                                            class="pythonCodeDisplayElement language-python">image_pil.convert("RGB")</code>),
+                                        this
+                                        dimension has a size of 3. These values represent the intensity of Red, Green,
+                                        and
+                                        Blue
+                                        channels of that color.</p>
+                                    <ul>
+                                        <li><code
+                                                class="pythonCodeDisplayElement language-python">img_np[y, x, 0]</code>
+                                        </li>
+                                        <p>This gives the Red value of the pixel at position (x, y).</p>
+                                        <li><code
+                                                class="pythonCodeDisplayElement language-python">img_np[y, x, 1]</code>
+                                        </li>
+                                        <p>This gives the Blue value of the pixel at position (x, y).</p>
+                                        <li><code
+                                                class="pythonCodeDisplayElement language-python">img_np[y, x, 2]</code>
+                                        </li>
+                                        <p>This gives the Green value of the pixel at position (x, y).</p>
+                                    </ul>
+                                    <p>Each of these channel values is typically an unsigned 8-bit integer, ranging from
+                                        0
+                                        (no
+                                        intensity) to 255 (full intensity)</p>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>
+                            <h5>Foundation for Numerical Operations</h5>
+                            <p>This 3D array is the foundation upon wihich the numerical image processing is built:
+                            </p>
+                            <ul>
+                                <li>Direct Pixel Access & Modification:
+                                    <p>NumPy's powerful indexing and slicing allow you to easily read or change the
+                                        value of
+                                        individual pixels, rows, columns, or specific color channels.</p>
+                                </li>
+
+                                <li>Mathematical Computations:
+                                    <p>Mathematical operations can be performed directyl on the array or it's slices. In
+                                        the
+                                        case of the interactive demo, it necessary to calculate the distance between
+                                        colors,
+                                        and
+                                        math is done on the color channels of each pixel to determine the distance.</p>
+                                </li>
+
+                                <li>Vectorization for Speed:
+                                    <p>NumPy allows for operations to be performed on entire arrays at once faster than
+                                        writing explicit Python loops. These "vectorized" operations are executed by
+                                        highly
+                                        optimized, pre-compiled C code, making them vastly faster than manual iteration
+                                        in
+                                        Python. Both the K-Means calculation and the window averaging functionality rely
+                                        heavily on this.</p>
+                                </li>
+                            </ul>
+                        </li>
+                    </ol>
+                </li>
+                <li>
+                    <h4>Image Padding</h4>
+                    <p>Once the image is in the NumPy array, a common preparatory step for neighborhood based operations
+                        (like the window averaging) is to add padding.</p>
+                    <pre><code class="pythonCodeDisplayElement language-python">pad_size = window_size_py // 2
+padded_img = np.pad(img_np, ((pad_size, pad_size), (pad_size, pad_size), (0,0)), mode='edge')</code></pre>
+                    <p>This adds pixels around the edge of image on all sides. This will allow the sliding window to
+                        operate on the pixels near the edge of the image without going out of bounds. This will be
+                        explored more thoroughly in its own section, but this preparatory function is apart of this
+                        step.</p>
+                </li>
+                <li>
+                    <h4>Finding Dominant Colors with K-Means Clustering</h4>
+                    <p>The next step is to determine a new, smaller color palette for the final quantized image. If the
+                        original image has thousands, or even millions, of colors, we need a way to select just a
+                        relatively few amount of representative colors (default case for the interactive demo is 8
+                        colors, as
+                        controlled by the 'K-Means Colors' slider). For this task I chose a machine learning algorithm
+                        from the <code>scikit-learn</code> library, <b>K-Means Clustering</b>.</p>
+
+                    <p>The goal here is to group similar colors present in the image into 'K' clusters, where 'K' is
+                        number of desired output colors. The center of each cluster will then become one of the few
+                        representative colors in the new limited color palette.</p>
+
+                    <p>Here is how the process unfolds:</p>
+                    <ol>
+                        <li>
+                            <h5>Preparing Pixel Data for K-means</h5>
+                            <p>K-means expects its input data as a 2-dimensional array, where each row is a data point
+                                (in the case of the application, a pixel color) and each column is a feature (the RGB
+                                values). The image, <code>image_np</code>, is currently a 3D array of shape
+                                <code>(height, width, 3)</code>. It needs to be reshaped:
+                            </p>
+                            <pre><code class="pythonCodeDisplayElement language-python"># img_np is the (padded or original) image as a NumPy array
+h_orig, w_orig, c = img.shape # Assuming 'img' is the original unpadded image here for sampling
+img_array_orig = img.reshape(h_orig * w_orig, c)
+
+# For K-Means fitting, especially on larger images, it's often beneficial
+# to use a representative sample of pixels to speed up the process.
+n_pixels = img_array_orig.shape[0]
+n_samples = min(1000, n_pixels) # Using up to 1000 pixels for fitting
+
+if n_samples <= 0:
+    # Handle cases with extremely small or empty images
+    js.console.warn("Python: Not enough pixels to sample for KMeans.")
+    # For this explanation, we'll assume n_samples > 0
+
+from sklearn.utils import shuffle # Ensure this import is present
+img_array_sample = shuffle(img_array_orig, random_state=0, n_samples=n_samples)</code></pre>
+                            <ul>
+                                <li>
+                                    <b>Reshaping:</b>
+                                    <p><code>img_array_orig = img.reshape(h_orig * w_orig, c)</code> transforms the
+                                        image into a long list of pixels, where each pixel is an array of its 3 (RGB)
+                                        color channels.</p>
+                                </li>
+                                <li>
+                                    <b>Sampling:</b>
+                                    <p>To improve performance within the browser evironment (and in my desktop
+                                        application too) we fit K-Means on a sample of pixels
+                                        (<code>img_array_sample</code>), rather than every pixel present in the usually
+                                        very large unpadded image. <code>sklearn.utils.shuffle</code> is used here to
+                                        pick <code>n_samples</code> random pixels from across the image. Using around
+                                        500-1000 pixels is a good balance of color representation and speed.</p>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>
+                            <h5>Initializing and Configuring K-Means</h5>
+                            <p>Next, the K-Means algorithm is set with specific parameters:</p>
+                            <pre><code class="pythonCodeDisplayElement language-python">from sklearn.cluster import KMeans
+
+# num_colors_py is passed from JavaScript, originating from the user's input (K-Means Colors slider)
+kmeans = KMeans(n_clusters=num_colors_py,  # The 'K' in K-Means: our target number of colors
+                init="k-means++",         # Smart initialization method for centroids
+                n_init=3,                 # Number of times to run with different seeds (reduced for browser)
+                random_state=0,           # For reproducible results
+                max_iter=50)              # Max iterations per run (reduced for browser)</code></pre>
+                            <ul>
+                                <li>
+                                    <p><code>n_clusters=Num_colors_py</code>: This is the most important parameter, as
+                                        it sets the number of dominant colors (clusters) to the amount selected by the
+                                        user via the 'K-Means Colors' slider.</p>
+                                </li>
+                                <li>
+                                    <p><code>init="km-means++"</code>: This method intelligently selects initial cluster
+                                        centers, often leading to better and more accurate results than random
+                                        initialization.</p>
+                                </li>
+                                <li>
+                                    <p><code>n_init=3</code>: K-Means can be sensitive to initial starting points. This
+                                        sets the K-Means algorithm to run multiple times with different starting points
+                                        to make sure the best result is chosen. For the interactive browser demo, this
+                                        initialization has been reduced from 10.</p>
+                                </li>
+                                <li>
+                                    <p><code>random_state=0</code>: This ensures that running the same image with the
+                                        same parameters will fetch the same results.</p>
+                                </li>
+                                <li>
+                                    <p><code>max_iter=50</code>: This sets a limit on the amount of iterations the
+                                        algorithm performs in a single run.</p>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>
+                            <h5>Fitting K-means and Prediciting Labels</h5>
+                            <p>With K-Means configured, it is now "fit" to our sampled pixel data. This is where the
+                                algorithm iteratively runs over the K clusters to match against the sample color data.
+                            </p>
+                            <pre><code class="pythonCodeDisplayElement language-python">try:
+    kmeans.fit(img_array_sample) # Fit K-Means on the sampled pixel colors
+except Exception as e:
+    import js
+    js.console.error(f"Python: KMeans fit error: {str(e)}")I</code></pre>
+                            <p>Once <code>fit</code> is complete, the <code>kmeans</code> object contains the results:
+                            </p>
+                            <ol>
+                                <li>
+                                    <p>Dominant Colors (The New Palette):<br>The centers of the K clusters are our new
+                                        dominant colors.</p>
+                                    <pre><code class="pythonCodeDisplayElement language-python"># kmeans.cluster_centers_ are float values, convert to uint8 (0-255)
+dominant_colors = np.clip(kmeans.cluster_centers_, 0, 255).astype(np.uint8)</code></pre>
+                                    <ul>
+                                        <li>
+                                            <p><code>kmeans.cluster_centers_</code>:<br> These are the RGB values for
+                                                each
+                                                of the K dominant colors.</p>
+                                        </li>
+                                        <li>
+                                            <p><code>np.clip(..., 0, 255)</code> and <code>.astype(np.uint8)</code>:
+                                                Ensure these color values are valid for an image (i.e. an integer falls
+                                                between 0 and 255). This array is the new limited color palette.</p>
+                                        </li>
+                                    </ul>
+                                </li>
+
+                                <li>
+                                    <p>Assigning Labels to All Pixels:<br>Now, the entire padded image is taken and each
+                                        of its pixels is assigned to one of the newly found dominant colors. The
+                                        <code>predict</code> method finds the closest dominant color (cluster center)
+                                        for each pixel.
+                                    </p>
+                                    <pre><code class="pythonCodeDisplayElement language-python"># img_array_padded was created from the padded_img
+# padded_img = np.pad(img_np_original, ...)
+# img_array_padded = padded_img.reshape(h_padded * w_padded, c)
+
+labels = kmeans.predict(img_array_padded)
+
+# Reshape these labels back into the 2D structure of the padded image
+# h_padded, w_padded are dimensions of the padded_img
+labels_reshaped = labels.reshape(h_padded, w_padded)</code></pre>
+                                    <ul>
+                                        <li>
+                                            <p><code>labels</code>: This is a 1D array where each element is an integer
+                                                (from 0 to K - 1). This integer is the index of the dominant color in
+                                                the <code>dominant_colors</code> palette that the corresponding pixel is
+                                                closest to.</p>
+                                        </li>
+                                        <li>
+                                            <p><code>labels_reshaped</code>: The 1D array of labels is reshaped back to
+                                                the 2D dimensions (<code>h_padded</code>, <code>w_padded</code>) of the
+                                                padded image. This <code>labels_reshaped</code> array now represents the
+                                                image where each pixel's value is simply and index into the new smaller
+                                                color palette.</p>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </ol>
+                            <h5>Output of this Stage:</h5>
+                            <p>At the end of this K-Means clustering stage, there are two critical pieces of data:</p>
+                            <ul>
+                                <li><code>dominant_colors</code>: A NumPy array of shape <code>(K, 3)</code>, where K
+                                    contains the dominant RGB colors. This is the new color palette.</li>
+                                <li><code>labels_reshaped</code>: A 2D NumPy array of shape
+                                    <code>(h_padded, w_padded)</code> where each value is an index (0 to K - 1) pointing
+                                    to a color in <code>dominant_colors</code>. This is the image, initially quantized
+                                    to the K-Means palette.
+                                </li>
+                            </ul>
+                            <p>The <code>labels_reshaped</code> array is then going to be used to as the direct input in
+                                the windowed mode calculation in the next step.</p>
+                        </li>
+                    </ol>
+                    <p></p>
+                </li>
+                <li>
+                    <h4>Refining Colors with Windowed Mode Calculation</h4>
+                    <p>After the K-Means algorithm has assigned an initial dominant color label to each pixel, the image
+                        might still appear a little 'speckled' or noisy. To create a smoother, more visually coherent
+                        image suitable for printing, a refinement step is introduced: <b>Windowed Mode Calculation</b>.
+                    </p>
+                    <p>The idea is to re-evaluate each pixel's color based on the colors of it's surrounding neighbors
+                        (up to 'Window Size' // 2 along each axis). Instead of it's initial K-Means label, a pixel will
+                        adopt the most frequent (the "mode") color label found within the window. This helps reduce
+                        isolated pixels and create more uniform areas of color.</p>
+                    <ol>
+                        <li>
+                            <h5>Gathering Pixel Neighborhoods (Windows)</h5>
+                            <p>First, the label information is collected for every pixel's neighborhood. Iteration then
+                                occurs across ther dimensions of the <i>originally</i> (unpadded) image. For each pixel,
+                                the corresponding window of labels from the <code>labels_reshaped</code> array is
+                                extracted. These windows are flattened and stored.</p>
+                            <pre><code class="pythonCodeDisplayElement language-python"># labels_reshaped is (h_padded, w_padded) from K-Means
+# h_orig, w_orig are dimensions of the original, unpadded image
+# window_size_py is the user-defined window dimension
+
+# Prepare a 3D array to hold all flattened windows
+windows_for_mode = np.zeros((h_orig, w_orig, window_size_py * window_size_py), dtype=labels_reshaped.dtype)
+
+for i in range(h_orig):
+    for j in range(w_orig):
+        # Extract window from the K-Means labels (labels_reshaped)
+        # The window is centered around the current (i,j) of the original image
+        window = labels_reshaped[i : i + window_size_py, j : j + window_size_py]
+        windows_for_mode[i, j, :] = window.flatten()</code></pre>
+                            <ul>
+                                <li>This code create <code>windows_for_mode</code>, where each
+                                    <code>windows_for_mode[i, j]</code> contains a 1D array of all the labels within the
+                                    <code>window_size_py</code> x <code>window_size_py</code> neighborhood corresponding
+                                    to the original pixel at <code>(i, j)</code>.
+                                </li>
+                            </ul>
+                        </li>
+                        <li>
+                            <h5>Determining the Most Common Label in Each Window</h5>
+                            <p>With the neighborhoods from the previous step, the <code>numpy_mode</code> function is
+                                applied</p>
+                            <pre><code class="pythonCodeDisplayElement language-python"># Apply numpy_mode to each window (the last axis of windows_for_mode)
+most_common_labels = np.apply_along_axis(numpy_mode, axis=2, arr=windows_for_mode)</code></pre>
+                            <ul>
+                                <li><code>np.apply_along_axis</code> iterates through <code>windows_for_mode</code>
+                                    array, taking each 1D slice along <code>axis=2</code> (which represents a flattened
+                                    window) and applies <code>numpy_mode</code> to it.</li>
+                            </ul>
+                        </li>
+
+                        <h4>Output of this Stage:</h4>
+                        <p>The result, <code>most_common_labels</code>, is a 2D array with the dimensions of the
+                            original image (<code>h_orig</code>, <code>w_orig</code>). Each element in this array now
+                            holds the refined color label for the corresponding pixel, determined by the consensus of
+                            the neighborhood. This smoothed set of labels is what is used to construct the final
+                            quantized image.</p>
+                        <p>This <code>most_common_labels</code> array is now ready for the final step: building the
+                            actual image from these refined labels and the dominant color palette.</p>
+                    </ol>
+                </li>
+                <li>
+                    <h4>Assembling the Final Quantized Image</h4>
+                    <p>With the limited set of dominant colors and the refined colors labels from using the windowed
+                        mode calculation, it it now time to construct the final quantized image using
+                        <code>dominant_colors</code> and <code>most_common_labels</code> array.
+                    </p>
+                    <ol>
+                        <li>
+                            <h5>Mapping Refined Labels to Dominant Colors</h5>
+                            <p>The <code>most_common_labels</code> array, which has the same height and width as the
+                                original image, contains an index for each pixel. This index points to a specific color
+                                with in <code>dominant_colors</code> palette. To build the final image, the RGB color
+                                associated with each pixel's refined label needs to be looked up.</p>
+                            <p>NumPy's advanced indexing capabilities allow for very efficient look ups without explicit
+                                loops for each pixel.</p>
+                            <pre><code class="pythonCodeDisplayElement language-python"># 'most_common_labels' is the (h_orig, w_orig) array of final color indices.
+# 'dominant_colors' is the (K, 3) array of RGB palette colors.
+# 'img' is the original image NumPy array (used here for getting the shape and type).
+
+# Ensure labels are integer type for indexing
+index_labels = most_common_labels.astype(np.intp) 
+
+# Initialize an output image array (e.g., all zeros, same shape as original)
+quantized_img_np = np.zeros_like(img, dtype=np.uint8)
+
+num_dominant_colors = dominant_colors.shape[0]
+
+if num_dominant_colors > 0:
+    # Extract individual R, G, B channels from the dominant color palette
+    red_palette = dominant_colors[:, 0]
+    green_palette = dominant_colors[:, 1]
+    blue_palette = dominant_colors[:, 2]
+
+    # Use the index_labels to pick colors from each palette channel
+    quantized_r = red_palette[index_labels]
+    quantized_g = green_palette[index_labels]
+    quantized_b = blue_palette[index_labels]
+
+    # Stack the channels back together to form the final RGB image array
+    # (or assign directly to channels of pre-allocated array)
+    quantized_img_np = np.stack([quantized_r, quantized_g, quantized_b], axis=-1)
+else:
+    # Handle case where no dominant colors were found (e.g., K-Means failed or K=0)
+    import js
+    js.console.warn("Python: No dominant colors to build final image; output may be black.")</code></pre>
+                            <ul>
+                                <li>
+                                    <p><code>index_labels</code>: This 2D array holds which of the <code>K</code>
+                                        dominant
+                                        colors each pixel should be mapped to.</p>
+                                </li>
+                                <li>
+                                    <p><b>Channel-wise Lookup:</b> By separating the <code>dominant_colors</code>
+                                        palette
+                                        into individual R, G, and B vectors (<code>red_palette</code>, etc.)
+                                        <code>index_labels</code> can be used to efficently create the R, G, and B
+                                        channels
+                                        of the quantized image.
+                                    </p>
+                                <li>
+                                    <p><code>np.stack(...)</code>: This combines the individual R, G, B channels back
+                                        into a 3-dimensional NumPy array, <code>quantized_img_np</code>, representing
+                                        the final RGB image with reduced colors.</p>
+                                </li>
+                        </li>
+                        </ul>
+                </li>
+                <li>
+                    <h5>Converting to a Displayable Image Format</h5>
+                    <p>The <code>quantized_img_np</code> is now a NumPy array holding the pixel data for the final
+                        image. To display it in the browser via Pyodide or to save it as a file, it is converted back to
+                        a PIL (Pillow) Image object, and then to bytes:</p>
+                    <pre><code class="pythonCodeDisplayElement language-python">from PIL import Image
+import io
+
+# Convert the NumPy array to a PIL Image
+quantized_img_pil = Image.fromarray(quantized_img_np.astype(np.uint8))
+
+# For the Pyodide demo, convert the PIL Image to bytes (e.g., PNG format)
+# This byte stream is then returned to JavaScript for display.
+output_buffer = io.BytesIO()
+quantized_img_pil.save(output_buffer, format="PNG")
+image_bytes_for_js = output_buffer.getvalue()</code></pre>
+                    <ul>
+                        <li>
+                            <p><code>Image.fromarray(...)</code>: Creates a Pillow Image from the NumPy array.</p>
+                        </li>
+                        <li>
+                            <p><code>image_bytes_for_js</code>: These are the bytes that JavaScript receives from
+                                Pyodide, which are then used to create a Blob and Object URL to display the quantized
+                                image in the image tag.</p>
+                        </li>
+                    </ul>
+                </li>
+            </ol>
+            <h4>The Result:</h4>
+            <p>At this point, the quantization process is complete! The <code>image_bytes_for_js</code> contains the
+                data for the color reduced image, reflecting both the dominant colors found by K-Means and the spatial
+                smoothing introduced by the windowed mode calculation. The image is then displayed in the interactive
+                demo, showcasing the effects of the chosen parameters.</p>
+            </li>
+            </ol>
+
+        </section>
+        <section class="article-content">
             <h2 id="final-interactive-area">Interactive Image Quantizer Demo (Python in Browser)</h2>
             <p>The core functionality of the image quantizer is able to be run in the browser thanks to <a
                     href="https://pyodide.org/">Pyodide</a>.</p>
@@ -338,7 +998,7 @@
                 <p>The following Python code is run in your browser using Pyodide to perform the image quantization.
                     (The core functions like <code>numpy_mode</code> and <code>quantizer_sklearn_py</code> are
                     defined here.)</p>
-                <pre><code id="pythonCodeForDisplay" class="language-python"></code></pre>
+                <pre><code id="fullPythonCodeForDisplay" class="pythonCodeDisplayElement language-python"></code></pre>
             </div>
         </section>
     </main>
@@ -354,7 +1014,9 @@
 
         // --- Main App and Status ---
         const statusDiv = document.getElementById('status');
-        const pythonCodeDisplayElement = document.getElementById('pythonCodeForDisplay');
+        const fullPythonCodeDisplayElement = document.getElementById('fullPythonCodeForDisplay');
+        const pythonCodeDisplayElements = document.querySelectorAll('.pythonCodeDisplayElement');
+
 
         // --- Top Controls ---
         const imageUploadInput = document.getElementById('imageUpload'); // Remains, but is hidden
@@ -532,11 +1194,20 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
 
 
 print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
-        pythonCodeDisplayElement.textContent = pyodidePythonScript;
 
+
+        fullPythonCodeDisplayElement.textContent = pyodidePythonScript; // Put raw code into the <code>
         async function mainPyodideAppLogic() {
             statusDiv.textContent = 'Pyodide Status: Loading...';
             try {
+                if (pythonCodeDisplayElements || fullPythonCodeDisplayElement) {
+                    if (typeof hljs !== 'undefined') {
+                        pythonCodeDisplayElements.forEach(hljsElement => hljs.highlightElement(hljsElement)); // Highlight this specific element
+                    } else {
+                        console.warn('highlight.js (hljs) not found. Code will not be highlighted.');
+                    }
+                }
+
                 pyodide = await loadPyodide();
                 statusDiv.textContent = 'Pyodide Status: Loaded. Loading packages (numpy, Pillow, scikit-learn)...';
                 // Pillow is often included with the full Pyodide distribution, 
@@ -548,16 +1219,6 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
                 // This defines numpy_mode and your_quantizer_sklearn_py in Python global scope
                 await pyodide.runPythonAsync(pyodidePythonScript);
                 statusDiv.textContent = 'Pyodide Status: Python script from textarea executed.';
-
-                if (pythonCodeDisplayElement) {
-                    pythonCodeDisplayElement.textContent = pyodidePythonScript; // Put raw code into the <code>
-                    if (typeof hljs !== 'undefined') {
-                        hljs.highlightElement(pythonCodeDisplayElement); // Highlight this specific element
-                    } else {
-                        console.warn('highlight.js (hljs) not found. Code will not be highlighted.');
-                    }
-                }
-
 
             } catch (error) {
                 statusDiv.textContent = `Pyodide Status: Error loading - ${error}`;
