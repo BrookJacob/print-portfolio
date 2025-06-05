@@ -154,6 +154,90 @@
             /* Space after the button */
         }
 
+        #imagePairCarousel {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px auto;
+            max-width: 800px;
+            /* Or your preferred width */
+            background-color: #f9f9f9;
+        }
+
+        .carousel-images {
+            display: flex;
+            justify-content: space-around;
+            /* Puts space between the two image slots */
+            align-items: flex-start;
+            /* Align items to the top */
+            gap: 15px;
+            /* Space between the two image slots */
+            margin-bottom: 15px;
+        }
+
+        .image-slot {
+            flex: 1;
+            /* Each slot takes equal width */
+            text-align: center;
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            background-color: #fff;
+            min-width: 0;
+            /* Allows flex items to shrink properly */
+        }
+
+        .image-slot h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1em;
+            color: #555;
+        }
+
+        .image-slot img {
+            max-width: 100%;
+            height: auto;
+            /* Maintain aspect ratio */
+            max-height: 300px;
+            /* Adjust as needed */
+            border: 1px solid #ddd;
+            object-fit: contain;
+            /* Ensures entire image is visible */
+        }
+
+        .carousel-caption {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            min-height: 1.2em;
+            /* Prevent layout shift if caption is empty */
+        }
+
+        .carousel-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .carousel-controls .app-button {
+            background-color: #e0e0e0;
+            color: #333;
+            border: 1px solid #adadad;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .carousel-controls .app-button:hover {
+            background-color: #d0d0d0;
+        }
+
+        #exampleCounter {
+            font-size: 0.9em;
+            color: #555;
+        }
+
         #interactive-area {
             border: 1px solid #777;
             font-family: Arial, sans-serif;
@@ -552,11 +636,11 @@ img_np = np.array(image_pil)
                                         <li><code
                                                 class="pythonCodeDisplayElement language-python">img_np[y, x, 1]</code>
                                         </li>
-                                        <p>This gives the Blue value of the pixel at position (x, y).</p>
+                                        <p>This gives the Green value of the pixel at position (x, y).</p>
                                         <li><code
                                                 class="pythonCodeDisplayElement language-python">img_np[y, x, 2]</code>
                                         </li>
-                                        <p>This gives the Green value of the pixel at position (x, y).</p>
+                                        <p>This gives the Blue value of the pixel at position (x, y).</p>
                                     </ul>
                                     <p>Each of these channel values is typically an unsigned 8-bit integer, ranging from
                                         0
@@ -712,7 +796,7 @@ kmeans = KMeans(n_clusters=num_colors_py,  # The 'K' in K-Means: our target numb
     kmeans.fit(img_array_sample) # Fit K-Means on the sampled pixel colors
 except Exception as e:
     import js
-    js.console.error(f"Python: KMeans fit error: {str(e)}")I</code></pre>
+    js.console.error(f"Python: KMeans fit error: {str(e)}")</code></pre>
                             <p>Once <code>fit</code> is complete, the <code>kmeans</code> object contains the results:
                             </p>
                             <ol>
@@ -949,6 +1033,30 @@ image_bytes_for_js = output_buffer.getvalue()</code></pre>
             </ol>
 
         </section>
+        <section id="quantizerExamplesSection" class="article-content">
+            <h3>Visual Examples: Original vs. Quantized</h3>
+            <p>Here are a few examples showcasing the effect of the image quantizer. The left image is the original, and
+                the right image is its quantized version (e.g., using 8 K-Means colors and a window size of 12).</p>
+
+            <div id="imagePairCarousel">
+                <div class="carousel-images">
+                    <div class="image-slot">
+                        <h4>Original</h4>
+                        <img id="carouselOriginalImage" src="#" alt="Original Example Image">
+                    </div>
+                    <div class="image-slot">
+                        <h4>Quantized</h4>
+                        <img id="carouselQuantizedImage" src="#" alt="Quantized Example Image">
+                    </div>
+                </div>
+                <div id="carouselCaption" class="carousel-caption">Caption for the image pair.</div>
+                <div class="carousel-controls">
+                    <button id="prevExampleButton" class="app-button">&lt; Previous</button>
+                    <span id="exampleCounter">Example 1 of N</span>
+                    <button id="nextExampleButton" class="app-button">Next &gt;</button>
+                </div>
+            </div>
+        </section>
         <section class="article-content">
             <h2 id="final-interactive-area">Interactive Image Quantizer Demo (Python in Browser)</h2>
             <p>The core functionality of the image quantizer is able to be run in the browser thanks to <a
@@ -1037,6 +1145,37 @@ image_bytes_for_js = output_buffer.getvalue()</code></pre>
         // --- Image Display ---
         const displayImageEl = document.getElementById('displayImage'); // Single display element
         const imageContainer = document.getElementById('imageContainer');
+
+        const carouselOriginalImageEl = document.getElementById('carouselOriginalImage');
+        const carouselQuantizedImageEl = document.getElementById('carouselQuantizedImage');
+        const carouselCaptionEl = document.getElementById('carouselCaption');
+        const prevExampleButton = document.getElementById('prevExampleButton');
+        const nextExampleButton = document.getElementById('nextExampleButton');
+        const exampleCounterEl = document.getElementById('exampleCounter');
+
+        // Define your image pairs - REPLACE with your actual image paths and captions
+        const imagePairs = [
+            {
+                original: '../../images/quantizer_examples/PXL_20240822_031742436_cropped.jpg', // Example path
+                quantized: '../../images/quantizer_examples/quantized_kmeans_c8_w12.jpg', // Example path
+                caption: 'Example 1: My brother\'s dog, Ducky.'
+            },
+            {
+                original: '../../images/quantizer_examples/PXL_20240830_220441019.jpg',
+                quantized: '../../images/quantizer_examples/mountains_quantized_kmeans_c8_w12.jpg',
+                caption: 'Example 2: A view of Red Castle from just north of Red Castle Lake (High Uintas Wilderness, Utah).'
+            },
+            {
+                original: '../../images/quantizer_examples/PXL_20230731_190722302.jpg',
+                quantized: '../../images/quantizer_examples/eagle_quantized_kmeans_c8_w12.jpg',
+                caption: 'Example 3: A Bald Eagle perched atop a rock outcropping (Kodiak, Alaska).'
+            }
+            // Add more image pairs here
+        ];
+
+        let currentExampleIndex = 0;
+
+
 
         // --- Global Variables (from before, still relevant) ---
         let panzoomInstance = null; // To hold the Panzoom instance
@@ -1195,6 +1334,48 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
 
 print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
 
+
+        function displayExample(index) {
+            if (index < 0 || index >= imagePairs.length) {
+                console.error("Invalid example index:", index);
+                return;
+            }
+            const pair = imagePairs[index];
+            carouselOriginalImageEl.src = pair.original;
+            carouselQuantizedImageEl.src = pair.quantized;
+            carouselCaptionEl.textContent = pair.caption || '';
+            exampleCounterEl.textContent = `Example ${index + 1} of ${imagePairs.length}`;
+
+            // Disable/enable buttons at ends
+            prevExampleButton.disabled = (index === 0);
+            nextExampleButton.disabled = (index === imagePairs.length - 1);
+        }
+
+        // Event Listeners for Carousel Buttons
+        if (nextExampleButton && prevExampleButton && imagePairs.length > 0) { // Check elements exist
+            nextExampleButton.addEventListener('click', () => {
+                if (currentExampleIndex < imagePairs.length - 1) {
+                    currentExampleIndex++;
+                    displayExample(currentExampleIndex);
+                }
+            });
+
+            prevExampleButton.addEventListener('click', () => {
+                if (currentExampleIndex > 0) {
+                    currentExampleIndex--;
+                    displayExample(currentExampleIndex);
+                }
+            });
+
+            // Initial display
+            displayExample(currentExampleIndex);
+        } else {
+            // Hide carousel controls if no images or buttons not found
+            const controls = document.querySelector('#imagePairCarousel .carousel-controls');
+            if (controls) controls.style.display = 'none';
+            if (carouselCaptionEl) carouselCaptionEl.textContent = "No examples to display.";
+            if (document.querySelector('.carousel-images')) document.querySelector('.carousel-images').innerHTML = "";
+        }
 
         fullPythonCodeDisplayElement.textContent = pyodidePythonScript; // Put raw code into the <code>
         async function mainPyodideAppLogic() {
