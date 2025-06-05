@@ -878,32 +878,36 @@ labels_reshaped = labels.reshape(h_padded, w_padded)</code></pre>
                         (up to 'Window Size' // 2 along each axis). Instead of it's initial K-Means label, a pixel will
                         adopt the most frequent (the "mode") color label found within the window. This helps reduce
                         isolated pixels and create more uniform areas of color.</p>
+                    <p><b>Edit</b>: This process has been changed to help prevent memory allocation errors, certainly
+                        something to avoid especially in a web environment. The process now runs in a more
+                        memory-efficient way by iterating through each pixel, calculating the mode for the given window,
+                        and immediately storing the result. This avoids creating a large, memory-intensive intermediate
+                        data structure. In limited trials, it actually improved the time it took to quantize the sample
+                        images.</p>
                     <ol>
                         <li>
                             <h5>Gathering Pixel Neighborhoods (Windows)</h5>
-                            <p>First, the label information is collected for every pixel's neighborhood. Iteration then
-                                occurs across ther dimensions of the <i>originally</i> (unpadded) image. For each pixel,
-                                the corresponding window of labels from the <code>labels_reshaped</code> array is
-                                extracted. These windows are flattened and stored.</p>
+                            <p>Instead of gathering all the pixel neighborhoods into a large array, each pixel coordinate of the final output image is iterated through. For each coordinate, the window calculation is performed and the result stored directly.</p>
                             <pre><code class="pythonCodeDisplayElement language-python"># labels_reshaped is (h_padded, w_padded) from K-Means
 # h_orig, w_orig are dimensions of the original, unpadded image
-# window_size_py is the user-defined window dimension
 
-# Prepare a 3D array to hold all flattened windows
-windows_for_mode = np.zeros((h_orig, w_orig, window_size_py * window_size_py), dtype=labels_reshaped.dtype)
+# Prepare an output array with the original image dimensions
+most_common_labels = np.zeros((h_orig, w_orig), dtype=labels.dtype)
 
+# Iterate through each pixel of the final image
 for i in range(h_orig):
     for j in range(w_orig):
-        # Extract window from the K-Means labels (labels_reshaped)
-        # The window is centered around the current (i,j) of the original image
+        # Extract the corresponding window from the padded labels
         window = labels_reshaped[i : i + window_size_py, j : j + window_size_py]
-        windows_for_mode[i, j, :] = window.flatten()</code></pre>
+
+        # Calculate the mode of the window and assign it to the output array
+        most_common_labels[i, j] = numpy_mode(window.flatten())</code></pre>
                             <ul>
-                                <li>This code create <code>windows_for_mode</code>, where each
-                                    <code>windows_for_mode[i, j]</code> contains a 1D array of all the labels within the
-                                    <code>window_size_py</code> x <code>window_size_py</code> neighborhood corresponding
-                                    to the original pixel at <code>(i, j)</code>.
-                                </li>
+                                <li>A new array, <code>most_common_labels</code>, is created with the same dimensions as the original image to hold the final, refined labels.</li>
+                                <li>The code then enters a nested <code>for</code> loop that iterates through every <code>(i, j)</code> coordinate.</li>
+                                <li>Inside the loop, a single <code>window</code> is extracted from the padded <code>labels reshaped</code> array.</li>
+                                <li>The <code>numpy_mode</code> is immediately called on this single window.</li>
+                                <li>The result is placed directly into the <code>most_common_labels[i, j]</code> position. This process avoids accumulating all windows in memory at once.</li>
                             </ul>
                         </li>
                         <li>
@@ -1183,9 +1187,8 @@ image_bytes_for_js = output_buffer.getvalue()</code></pre>
         let originalImageBytes = null;
         let currentQuantizedBlob = null;
 
-        const pyodidePythonScript = `
+        const pyodidePythonScript = `import io
 from PIL import Image
-import io
 import numpy as np
 import pyodide
 from sklearn.cluster import KMeans
@@ -1193,37 +1196,25 @@ from sklearn.utils import shuffle
 
 # --- Helper Function for NumPy Mode ---
 def numpy_mode(arr):
-    """
-    Calculates the mode (most frequent value) of a 1D array using NumPy.
-    Assumes non-negative integer inputs suitable for bincount.
-    """
-    if arr.size == 0:
-        return 0
+    if arr.size == 0: return 0
     arr_int = arr.astype(np.intp)
     if np.any(arr_int < 0):
         arr_int = arr_int[arr_int >= 0]
-        if arr_int.size == 0:
-            return 0
+        if arr_int.size == 0: return 0
     
     try:
         counts = np.bincount(arr_int)
     except MemoryError:
-        print(
-            f"MemoryError in bincount. Max index: {np.max(arr_int)}. Array size: {arr_int.size}"
-        )
-        # Fallback or raise error - returning 0 might hide issues
-        # Find unique values and their counts as an alternative if bincount fails
         unique_vals, counts = np.unique(arr_int, return_counts=True)
-        if unique_vals.size == 0:
-            return 0
-        return unique_vals[np.argmax(counts)]  # Return the value with max count
+        if unique_vals.size == 0: return 0
+        return unique_vals[np.argmax(counts)]
 
-    if counts.size == 0:
-        return 0
+    if counts.size == 0: return 0
     return np.argmax(counts)
 
-def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
-    import js # For logging
+def quantizer_image_py(image_bytes_proxy, num_colors_py, window_size_py):
+    """ Memory-efficient image quantizer. """
+    import js
     js.console.log(f"Python: Quantizing with K-Means: {num_colors_py} colors, Window: {window_size_py}")
 
     try:
@@ -1235,102 +1226,47 @@ def quantizer_sklearn_py(image_bytes_proxy, num_colors_py, window_size_py):
     
     img = np.array(image_pil)
     h_orig, w_orig, c = img.shape
-
-    pad_size = window_size_py // 2 # Use window_size_py
-    padded_img = np.pad(
-        img,
-        ((pad_size, pad_size), (pad_size, pad_size), (0, 0)),
-        mode="edge",
-    )
+    pad_size = window_size_py // 2
+    padded_img = np.pad(img, ((pad_size, pad_size), (pad_size, pad_size), (0, 0)), mode="edge")
     h_padded, w_padded, _ = padded_img.shape
 
-    # --- K-Means Clustering ---
     img_array_padded = padded_img.reshape(h_padded * w_padded, c)
     img_array_orig = img.reshape(h_orig * w_orig, c)
     n_pixels = img_array_orig.shape[0]
-    n_samples = min(1000, n_pixels) # Or adjust sample size for browser performance
+    n_samples = min(1000, n_pixels)
+    if n_samples <= 0: return None
 
-    if n_samples <= 0:
-        js.console.warn("Python: Not enough pixels to sample for KMeans. Returning original.")
-        # Fallback: return original image bytes
-        output_buffer = io.BytesIO()
-        image_pil.save(output_buffer, format="PNG")
-        return output_buffer.getvalue()
-
-    # Consider fewer n_init/max_iter for browser speed
-    kmeans = KMeans(n_clusters=num_colors_py, init="k-means++", n_init=3, random_state=0, max_iter=10) 
-    
-    # Sample pixels for fitting KMeans
+    kmeans = KMeans(n_clusters=num_colors_py, init="k-means++", n_init=3, random_state=0, max_iter=10)
     img_array_sample = shuffle(img_array_orig, random_state=0, n_samples=n_samples)
-    try:
-        kmeans.fit(img_array_sample)
-    except Exception as e:
-        js.console.error(f"Python: KMeans fit error: {str(e)}")
-        return None
-
-    labels = kmeans.predict(img_array_padded) # Predict on the full PADDED array
+    kmeans.fit(img_array_sample)
+    
+    labels = kmeans.predict(img_array_padded)
     dominant_colors = np.clip(kmeans.cluster_centers_, 0, 255).astype(np.uint8)
-    # js.updateProgress(40)
+    labels_reshaped = labels.reshape(h_padded, w_padded)
 
-    labels_reshaped = labels.reshape(h_padded, w_padded) # Use h_padded, w_padded
-
-    # --- Window Mode Calculation (SERIAL) ---
-    windows_for_mode = np.zeros((h_orig, w_orig, window_size_py * window_size_py), dtype=labels.dtype)
+    # --- Memory-Efficient Window Mode Calculation ---
+    most_common_labels = np.zeros((h_orig, w_orig), dtype=labels.dtype)
     for i in range(h_orig):
         for j in range(w_orig):
-            # Extract window from labels_reshaped (which is based on padded image)
-            # The indices i, j here are for the *original* image dimensions
-            # So we need to map them to the padded labels_reshaped
             window = labels_reshaped[i : i + window_size_py, j : j + window_size_py]
-            windows_for_mode[i, j, :] = window.flatten()
+            most_common_labels[i, j] = numpy_mode(window.flatten())
     
-    js.console.log("Python: Starting serial mode calculation...")
-    try:
-        most_common_labels = np.apply_along_axis(numpy_mode, axis=2, arr=windows_for_mode)
-    except Exception as e:
-        js.console.error(f"Python: Error during mode calculation: {str(e)}")
-        return None
-    js.console.log("Python: Mode calculation complete.")
-    # js.updateProgress(90)
-
-    # --- Create Quantized Image --- (Your existing logic for indexing with dominant_colors)
-    index_labels = most_common_labels.astype(np.intp) 
-    # Ensure index_labels is 2D matching original image dimensions if necessary, though apply_along_axis should preserve first N-1 dims.
-    # apply_along_axis on (h_orig, w_orig, N*N) with axis=2 will result in (h_orig, w_orig)
-    # So, index_labels.reshape(h_orig, w_orig) might not be needed if already 2D.
-    # Check shape: js.console.log(f"Python: index_labels shape: {index_labels.shape}")
-    
-    quantized_img = np.zeros_like(img) # Using the shape of the original unpadded 'img'
-
+    # --- Create Final Quantized Image ---
+    index_labels = most_common_labels.astype(np.intp)
+    quantized_img = np.zeros_like(img)
     num_dominant_colors = dominant_colors.shape[0]
     if num_dominant_colors > 0:
-        # Your separate channel indexing logic here...
-        # Make sure index_labels values are < num_dominant_colors
         if np.any(index_labels >= num_dominant_colors):
-            js.console.error(f"Python: Error - label index out of bounds. Max label: {np.max(index_labels)}, Num colors: {num_dominant_colors}")
-            # Clip labels or handle error
             index_labels = np.clip(index_labels, 0, num_dominant_colors - 1)
+        quantized_img[:,:,0] = dominant_colors[:, 0][index_labels]
+        quantized_img[:,:,1] = dominant_colors[:, 1][index_labels]
+        quantized_img[:,:,2] = dominant_colors[:, 2][index_labels]
 
-        red_channel = dominant_colors[:, 0]
-        green_channel = dominant_colors[:, 1]
-        blue_channel = dominant_colors[:, 2]
-
-        quantized_img[:,:,0] = red_channel[index_labels]
-        quantized_img[:,:,1] = green_channel[index_labels]
-        quantized_img[:,:,2] = blue_channel[index_labels]
-    else:
-        js.console.warn("Python: No dominant colors found, result will be black or original.")
-        # Optionally return the original image or a black image if no colors
-        # For now, it will return the zeros_like(img) if num_dominant_colors is 0
-
-    # --- Output ---
     quantized_img_pil = Image.fromarray(quantized_img.astype(np.uint8))
     output_buffer = io.BytesIO()
     quantized_img_pil.save(output_buffer, format="PNG")
-    # js.updateProgress(100)
-    js.console.log("Python: Quantization function finished.")
+    
     return output_buffer.getvalue()
-
 
 print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
 
@@ -1414,15 +1350,6 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
         imageUploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file) {
-                // Optional: Add MAX_FILE_SIZE_BYTES check here
-                // const MAX_FILE_SIZE_MB = 5;
-                // const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-                // if (file.size > MAX_FILE_SIZE_BYTES) {
-                //     alert(`File is too large (max ${MAX_FILE_SIZE_MB} MB). Please choose a smaller file.`);
-                //     imageUploadInput.value = ""; // Reset file input
-                //     return;
-                // }
-
                 const MAX_WIDTH = 2048;
                 const MAX_HEIGHT = 2048;
                 const reader = new FileReader();
@@ -1449,55 +1376,55 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        const resizedDataUrl = canvas.toDataURL(file.type); // Or force 'image/png' or 'image/jpeg'
+                        const resizedDataUrl = canvas.toDataURL(file.type);
 
-                        // If displayImageEl was previously showing a blob URL (quantized image), revoke it
+                        // --- START: Robust Reset Logic ---
+                        // 1. Destroy the existing Panzoom instance completely.
+                        if (panzoomInstance) {
+                            panzoomInstance.destroy();
+                            panzoomInstance = null;
+                        }
+
+                        // 2. If the current src is a blob, revoke it to prevent memory leaks.
                         if (displayImageEl.src && displayImageEl.src.startsWith('blob:')) {
                             URL.revokeObjectURL(displayImageEl.src);
                         }
 
-                        displayImageEl.src = resizedDataUrl; // Display the new (potentially resized) original image
+                        // 3. Reset the image element's transform style to remove any Panzoom modifications.
+                        displayImageEl.style.transform = '';
+                        // --- END: Robust Reset Logic ---
+
+                        // Set the new source for the image display
+                        displayImageEl.src = resizedDataUrl;
                         displayImageEl.style.display = 'block';
-                        // if (currentImageTitleEl) currentImageTitleEl.textContent = "Original Image"; // Optional
-                        displayImageEl.onload = () => { // Ensure image is loaded before initializing panzoom
+
+                        // Re-initialize Panzoom once the new image has loaded into the element
+                        displayImageEl.onload = () => {
                             initializePanzoom();
                         };
-                        if (displayImageEl.complete) { // If already loaded (e.g. from cache or very fast)
+                        if (displayImageEl.complete) { // Handle cached images
                             initializePanzoom();
                         }
 
-                        // Convert data URL to Uint8Array for Python
-                        // Note: Fetching a data URL is a common way to get its ArrayBuffer.
+                        // Convert the new data URL to Uint8Array for Python processing
                         fetch(resizedDataUrl)
-                            .then(res => {
-                                if (!res.ok) {
-                                    throw new Error(`HTTP error! status: ${res.status}`);
-                                }
-                                return res.arrayBuffer();
-                            })
+                            .then(res => res.arrayBuffer())
                             .then(arrayBuffer => {
                                 originalImageBytes = new Uint8Array(arrayBuffer);
                                 currentQuantizedBlob = null; // Reset any previous quantized result
                                 statusDiv.textContent = "Image ready for quantization.";
                             })
                             .catch(fetchError => {
-                                console.error("Error fetching resized image data URL for ArrayBuffer conversion:", fetchError);
-                                statusDiv.textContent = "Error processing image for upload.";
-                                originalImageBytes = null; // Ensure it's null on error
+                                console.error("Error processing image for upload:", fetchError);
+                                statusDiv.textContent = "Error processing image.";
                             });
                     };
                     img.onerror = () => {
-                        console.error("Error loading image into Image object.");
-                        statusDiv.textContent = "Could not load image file.";
-                        originalImageBytes = null;
-                        currentQuantizedBlob = null;
-                        displayImageEl.style.display = 'none';
-                        displayImageEl.src = "#";
+                        statusDiv.textContent = "Could not load the selected file. It may be corrupt or an unsupported format.";
                     };
-                    img.src = e_load.target.result; // This is the result of reader.readAsDataURL(file)
+                    img.src = e_load.target.result;
                 };
                 reader.onerror = () => {
-                    console.error("Error reading file with FileReader.");
                     statusDiv.textContent = "Error reading file.";
                 };
                 reader.readAsDataURL(file);
@@ -1515,37 +1442,33 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
             }
 
             statusDiv.textContent = "Quantizing... please wait.";
+            quantizeButton.disabled = true;
 
             try {
-                // Get parameters from HTML inputs
                 const numColors = parseInt(numColorsInput.value);
                 const windowSize = parseInt(windowSizeInput.value);
-                const useManualColors = manualColorsCheckbox.checked;
 
-                // Make the JavaScript Uint8Array (originalImageBytes) and other parameters
-                // available to the Python snippet that will call your function.
-                // Pyodide will automatically convert simple JS types (numbers, strings)
-                // to their Python equivalents. JS Uint8Array will be a PyProxy.
                 pyodide.globals.set("js_image_bytes_for_python", originalImageBytes);
                 pyodide.globals.set("js_num_colors_for_python", numColors);
                 pyodide.globals.set("js_window_size_for_python", windowSize);
-                pyodide.globals.set("js_use_manual_colors_for_python", useManualColors);
 
-                // Call the Python function. The Python code string will retrieve the
-                // globals we just set and pass them to the Python function.
-                let resultBytesPyProxy = await pyodide.runPythonAsync(`quantizer_sklearn_py(js_image_bytes_for_python, js_num_colors_for_python, js_window_size_for_python)`);
+                // Call the single, simplified Python function
+                let resultBytesPyProxy = await pyodide.runPythonAsync(
+                    `quantizer_image_py(js_image_bytes_for_python, js_num_colors_for_python, js_window_size_for_python)`
+                );
 
                 if (resultBytesPyProxy) {
+                    // Handle the direct bytes result (no dictionary)
                     const uint8Array = resultBytesPyProxy.toJs();
-                    currentQuantizedBlob = new Blob([uint8Array], { type: 'image/png' }); // Store for saving
+                    currentQuantizedBlob = new Blob([uint8Array], { type: 'image/png' });
 
                     if (displayImageEl.src && displayImageEl.src.startsWith('blob:')) {
-                        URL.revokeObjectURL(displayImageEl.src); // Revoke previous quantized blob URL
+                        URL.revokeObjectURL(displayImageEl.src);
                     }
 
                     const imageUrl = URL.createObjectURL(currentQuantizedBlob);
-                    displayImageEl.src = imageUrl; // Update display with quantized image
-                    // if (currentImageTitleEl) currentImageTitleEl.textContent = "Quantized Image";
+                    displayImageEl.src = imageUrl;
+
                     statusDiv.textContent = "Quantization complete!";
 
                     if (typeof resultBytesPyProxy.destroy === 'function') {
@@ -1558,6 +1481,8 @@ print("Python setup complete. 'quantizer_sklearn_py' is defined.")`
             } catch (error) {
                 statusDiv.textContent = `JavaScript Error during quantization: ${error}`;
                 console.error("Quantization JS error:", error);
+            } finally {
+                quantizeButton.disabled = false;
             }
         });
 
