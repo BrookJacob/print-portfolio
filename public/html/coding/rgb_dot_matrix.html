@@ -184,6 +184,60 @@
 
     <main>
         <section class="article-content">
+            <h2>Generating RGB Dot Patterns</h2>
+            <p>This tool transforms a regular image into a stylized version composed of red, green, and blue dots,
+                reminiscent of halftone printing techniques. In traditional printing, halftoning uses dots of varying
+                sizes or spacing to simulate continuous tones with a limited color palette. This interactive demo
+                applies a similar principle digitally, deconstructing the sourece inamge into a grid and representing
+                the color in each grid cell with trhree individual dots for the Red, Green, and Blue channels.</p>
+            <p>My goal in creating this was to build an image filter that could produce visually interesting, abstract
+                interpretations of images, suitable for my own printmaking work and as a fun, interactive way to explore
+                image processing concepts. The various parameters allow for fine tuning of the image filter, allowing
+                for a wide range of artistic outputs.</p>
+            <br>
+            <h3>Overall Architecture of the Application</h3>
+            <p>The process of converting a source image into an RGB dot matrix can be broken down into these core steps:
+            </p>
+            <ol>
+                <li>
+                    <h4>Image Loading and Grid Setup</h4>
+                    <p>The application begins by loading the user selected image. It then prepares a blank, output
+                        canvas of the same dimensions. The core logic iterates over this canvas, not pixel-by-pixel, but
+                        in a series of larger steps defined by the <b>Grid Spacing</b> parameter. This grid forms the
+                        foundational structure for where the dot patterns will be generated.</p>
+                </li>
+                <li>
+                    <h4>Color Sampling and Radius Calculation</h4>
+                    <p>For each cell in the grid, the application samples the color from the center of that cell in the
+                        original image. The intensity of the Red, Green, and Blue channels of the this sampled color
+                        directly determines the size (or radius) of the corresponding R,G, and B dots to be drawn. A
+                        brighter value in the original image results in a larger dot in the output. The <b>Gamma
+                            Correction</b> parameter is used here to adjust the tonal response, controlling how the
+                        input brightness maps to output dot size.</p>
+                </li>
+                <li>
+                    <h4>Dot Positioning</h4>
+                    <p>With the dot sizes determined, the next step is to decide where to place them within the grid
+                        cell.</p>
+                    <p>The R, G, and B dots are placed at the vertices of an equilateral triangle centered
+                        within the cell. The <b>Scale Factor</b> parameter controls how far the dots spread out
+                        from the center, creating either a tight cluster or a wider pattern.</p>
+                </li>
+                <li>
+                    <h4>Image Rendering</h4>
+                    <p>The final step is to draw the calculated dots onto the outout canvas.</p>
+                    <p>The Red, Green, and Blue dots are drawn directly onto a solid black background. Where they
+                        overlap, the last-drawn dot will obscure the ones beneath it.</p>
+                </li>
+                <li>
+                    <h4>Final Image Output</h4>
+                    <p>The fully rendered output canvas, now populated with the RGB dot pattern, is converted into a
+                        standard PNG image format. This image data is sent back to the browser to be displayed in the
+                        interactive demo area, where it can also be saved by the user.</p>
+                </li>
+            </ol>
+        </section>
+        <section class="article-content">
             <h2>Interactive RGB Dot Generator</h2>
             <p>This tool processes an image to create an RGB triangular dot effect, simulating halftone patterns. Adjust
                 the parameters below to see how they affect the output. The core logic runs in your browser using Python
@@ -516,14 +570,15 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
         async function main() {
             statusDiv.textContent = 'Pyodide: Loading runtime...';
             try {
+                if (typeof hljs !== 'undefined') {
+                    hljs.highlightElement(pythonCodeDisplayElement);
+                }
                 pyodide = await loadPyodide();
                 statusDiv.textContent = 'Pyodide: Runtime loaded. Loading packages (Pillow, NumPy)...';
                 await pyodide.loadPackage(['Pillow', 'numpy']);
                 statusDiv.textContent = 'Pyodide: Packages loaded. Ready to process.';
 
-                if (typeof hljs !== 'undefined') {
-                    hljs.highlightElement(pythonCodeDisplayElement);
-                }
+
                 // Make Python function callable from JS
                 pyodide.runPython(pyodidePythonScript); // Define functions in Python global scope
             } catch (error) {
