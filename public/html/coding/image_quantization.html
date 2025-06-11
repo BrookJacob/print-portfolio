@@ -879,10 +879,10 @@ labels_reshaped = labels.reshape(h_padded, w_padded)</code></pre>
                         adopt the most frequent (the "mode") color label found within the window. This helps reduce
                         isolated pixels and create more uniform areas of color.</p>
                     <p><b>Edit</b>: This process has been changed to help prevent memory allocation errors, certainly
-                        something to avoid especially in a web environment. The process now runs in a more
+                        something to avoid, especially in a web environment. The process now runs in a more
                         memory-efficient way by iterating through each pixel, calculating the mode for the given window,
                         and immediately storing the result. This avoids creating a large, memory-intensive intermediate
-                        data structure. In limited trials, it actually improved the time it took to quantize the sample
+                        data structure. In limited trials, it improved the time it took to quantize the sample
                         images.</p>
                     <ol>
                         <li>
