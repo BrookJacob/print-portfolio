@@ -65,6 +65,14 @@
             background-color: #f0f0f0;
         }
 
+        #topControls .control-group select {
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+
         #topControls .control-group input[type="checkbox"] {
             margin-right: 5px;
         }
@@ -88,9 +96,20 @@
             font-size: 0.9em;
         }
 
+        #topControls .action-buttons button#saveLayersButton {
+            background-color: #dbeafe;
+            /* Light blue accent */
+            border-color: #93c5fd;
+        }
+
         #topControls .action-buttons button.app-button:hover {
             background-color: #d0d0d0;
         }
+
+        #topControls .action-buttons button#saveLayersButton:hover {
+            background-color: #bfdbfe;
+        }
+
 
         #mainContentArea {
             display: flex;
@@ -98,55 +117,37 @@
             min-height: 300px;
         }
 
-        /* imageDisplayArea will be the panzoom container */
         #imageDisplayArea {
             flex-grow: 1;
             padding: 15px;
             background-color: #d3d3d3;
-            /* Matches image_quantization.html's image area bg */
             display: flex;
             flex-direction: column;
-            /* Stack title and imageContainer */
             align-items: center;
-            /* Removed justify-content: center to let imageContainer define its height better */
             gap: 10px;
             min-height: 300px;
-            /* Or a height that suits your layout */
             height: 100%;
-            /* Allow it to take up parent's height if possible */
             overflow: hidden;
-            /* In case content inside tries to overflow, good for child panzoom */
         }
 
         #imageContainer {
-            /* This will be the Panzoom viewport for wheel events */
             width: 100%;
             height: calc(100% - 25px);
-            /* Adjust based on title height or set fixed/flex height */
-            /* Or use flex-grow: 1 if imageDisplayArea is also flex column and has space */
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            /* Crucial for Panzoom's 'contain' option */
             cursor: grab;
-            /* Indicate that this area is draggable */
             position: relative;
-            /* For potential absolute positioned children if any */
         }
 
         #imageContainer img {
-            /* This is #displayImage */
             display: block;
             max-width: 100%;
             max-height: 100%;
-            /* Image will be contained within imageContainer */
             object-fit: contain;
-            /* Scales image down to fit, maintains aspect ratio */
             border: 1px solid #bbb;
             background-color: white;
-            /* Visible if image has transparency */
-            /* Panzoom will apply transforms for panning and zooming */
         }
 
         #status {
@@ -159,7 +160,6 @@
         }
 
         #opacityControls.control-group {
-            /* Ensure it takes full width for its content */
             width: 100%;
             justify-content: flex-start;
         }
@@ -188,8 +188,8 @@
             <p>This tool transforms a regular image into a stylized version composed of red, green, and blue dots,
                 reminiscent of halftone printing techniques. In traditional printing, halftoning uses dots of varying
                 sizes or spacing to simulate continuous tones with a limited color palette. This interactive demo
-                applies a similar principle digitally, deconstructing the sourece inamge into a grid and representing
-                the color in each grid cell with trhree individual dots for the Red, Green, and Blue channels.</p>
+                applies a similar principle, digitally deconstructing the source image into a grid and representing
+                the color in each grid cell with three individual dots for the Red, Green, and Blue channels.</p>
             <p>My goal in creating this was to build an image filter that could produce visually interesting, abstract
                 interpretations of images, suitable for my own printmaking work and as a fun, interactive way to explore
                 image processing concepts. The various parameters allow for fine tuning of the image filter, allowing
@@ -268,6 +268,13 @@
                             class="compact-input">
                     </div>
                     <div class="control-group">
+                        <label for="dotShapeSelect">Dot Shape:</label>
+                        <select id="dotShapeSelect">
+                            <option value="circle" selected>Circle</option>
+                            <option value="square">Square</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
                         <label for="subsampleCheckbox">Sub-sample Dot Position:</label>
                         <input type="checkbox" id="subsampleCheckbox">
                     </div>
@@ -286,6 +293,7 @@
                         <button id="openButton" class="app-button">Open Image</button>
                         <button id="processButton" class="app-button">Process Image</button>
                         <button id="saveButton" class="app-button">Save Image</button>
+                        <button id="saveLayersButton" class="app-button">Save Layers</button>
                     </div>
                 </div>
 
@@ -314,14 +322,15 @@
     <script>
         document.getElementById('current-year').textContent = new Date().getFullYear();
 
-        const statusDiv = document.getElementById('status'); // Updated ID
+        const statusDiv = document.getElementById('status');
         const pythonCodeDisplayElement = document.getElementById('pythonCodeForDisplay');
 
         const imageUploadInput = document.getElementById('imageUpload');
         const openButton = document.getElementById('openButton');
         const processButton = document.getElementById('processButton');
         const saveButton = document.getElementById('saveButton');
-        const imageDisplayArea = document.getElementById('imageDisplayArea'); const imageContainer = document.getElementById('imageContainer'); // NEW: For Panzoom wheel listener
+        const saveLayersButton = document.getElementById('saveLayersButton');
+        const imageContainer = document.getElementById('imageContainer');
         const displayImageEl = document.getElementById('displayImage');
 
         const gridSpacingSlider = document.getElementById('gridSpacingSlider');
@@ -332,6 +341,7 @@
         const maxDotRadiusInput = document.getElementById('maxDotRadiusInput');
         const gammaSlider = document.getElementById('gammaSlider');
         const gammaInput = document.getElementById('gammaInput');
+        const dotShapeSelect = document.getElementById('dotShapeSelect');
         const subsampleCheckbox = document.getElementById('subsampleCheckbox');
         const alphaCheckbox = document.getElementById('alphaCheckbox');
         const opacityControls = document.getElementById('opacityControls');
@@ -340,34 +350,41 @@
 
         let pyodide = null;
         let originalImageBytes = null;
-        let currentProcessedBlob = null;
+        let currentProcessedResultProxy = null;
         let panzoomInstance = null;
-        const DEFAULT_MIN_DOT_RADIUS = 1.0; // From Python script
+        const DEFAULT_MIN_DOT_RADIUS = 1.0;
 
-        const pyodidePythonScript = `
-import io
+        // --- Start of Python Code String ---
+        const pyodidePythonScript = `import io
 import math
-import js # For console logging
-from PIL import Image, ImageDraw # ImageFilter not used in core logic here
+import js
+from PIL import Image, ImageDraw, ImageOps
 import numpy as np
 
 print("Python RGB Dot Generator Core Logic Loaded for Pyodide")
 
-BACKGROUND_COLOR = (0, 0, 0) # Black background (used when alpha is off)
-DEFAULT_GAMMA = 1.8 
+BACKGROUND_COLOR = (0, 0, 0)
+DEFAULT_GAMMA = 1.8
+DEFAULT_DOT_SHAPE = "circle"
 
 def calculate_dot_radius(channel_value, min_radius, max_radius, gamma=DEFAULT_GAMMA):
     if channel_value < 0: channel_value = 0
     if channel_value > 255: channel_value = 255
     if max_radius <= min_radius: return min_radius
+
     normalized_value = channel_value / 255.0
-    if normalized_value == 0.0: gamma_corrected_value = 0.0
-    elif gamma == 1.0: gamma_corrected_value = normalized_value
+
+    if normalized_value == 0.0:
+        gamma_corrected_value = 0.0
+    elif gamma == 1.0:
+        gamma_corrected_value = normalized_value
     else:
-        try: gamma_corrected_value = pow(normalized_value, gamma)
+        try:
+            gamma_corrected_value = pow(normalized_value, gamma)
         except ValueError:
             js.console.warn(f"Gamma calc error: val={normalized_value}, gamma={gamma}")
             gamma_corrected_value = normalized_value
+    
     return min_radius + gamma_corrected_value * (max_radius - min_radius)
 
 def get_average_color(image_pixels, width, height, box):
@@ -376,196 +393,173 @@ def get_average_color(image_pixels, width, height, box):
     bottom = min(height, bottom)
     if left >= right or top >= bottom: return (0, 0, 0)
     
-    # Slicing for speed if image_pixels is a NumPy array
-    if isinstance(image_pixels, np.ndarray):
-        if image_pixels.ndim == 3 and image_pixels.shape[2] >= 3: # Check for RGB/RGBA
-            pixel_slice = image_pixels[top:bottom, left:right, :3] # Take RGB
-            if pixel_slice.size == 0: return (0,0,0)
-            avg_colors = np.mean(pixel_slice, axis=(0,1))
-            return tuple(int(round(c)) for c in avg_colors)
-        else: # Fallback for unexpected numpy array structure
-            js.console.warn("get_average_color: Unexpected NumPy array structure.")
-            pass # Fall through to pixel iteration
-
-
-    # Fallback for PIL PixelAccess or other types
-    r_total, g_total, b_total = 0, 0, 0
-    pixel_count = 0
+    r_total, g_total, b_total, pixel_count = 0, 0, 0, 0
     for y_sub in range(top, bottom):
         for x_sub in range(left, right):
             try:
-                r, g, b = image_pixels[x_sub, y_sub][:3] # Handle RGBA from PIL load
+                r, g, b = image_pixels[x_sub, y_sub][:3]
                 r_total += r; g_total += g; b_total += b
                 pixel_count += 1
-            except IndexError: continue
+            except IndexError:
+                continue
     if pixel_count == 0: return (0, 0, 0)
     return (r_total // pixel_count, g_total // pixel_count, b_total // pixel_count)
 
 def apply_effect_logic(input_pil_image, grid_spacing, scale_factor, min_radius, max_radius,
-                       alpha_enabled, opacity_percent, subsample_enabled, gamma=DEFAULT_GAMMA):
-    js.console.log(f"Python: apply_effect_logic called. Alpha: {alpha_enabled}, Opacity: {opacity_percent}%")
+                       alpha_enabled, opacity_percent, subsample_enabled,
+                       gamma=DEFAULT_GAMMA, dot_shape=DEFAULT_DOT_SHAPE):
+    js.console.log(f"Python: Applying effect with shape: {dot_shape}")
     if not input_pil_image: raise ValueError("Input image is missing.")
     width, height = input_pil_image.size
     if width <= 0 or height <= 0: raise ValueError(f"Invalid image dimensions: {width}x{height}")
 
-    # Use NumPy array for potentially faster pixel access if input_pil_image is convertible
     try:
-        # Convert to RGBA if it has alpha, otherwise RGB. This helps simplify pixel access.
-        # If already numpy, this path might be skipped if original_pixels is already an array.
-        img_for_sampling_np = np.array(input_pil_image.convert('RGBA')) 
-        original_pixels_np = img_for_sampling_np[:, :, :3] # Work with RGB for sampling
+        input_for_sampling = input_pil_image.convert('RGB')
+        original_pixels = input_for_sampling.load()
     except Exception as e:
-        js.console.warn(f"Could not convert input to NumPy array, using PIL.load(): {e}")
-        # Fallback to PIL's load if NumPy conversion fails or for non-standard modes
-        # Ensure it's RGB for pixel sampling logic if not numpy
-        input_for_sampling_pil = input_pil_image
-        if input_for_sampling_pil.mode not in ['RGB', 'RGBA']:
-             input_for_sampling_pil = input_for_sampling_pil.convert('RGB')
-        original_pixels_pil = input_for_sampling_pil.load()
-        original_pixels_np = None # Flag that we're using PIL load
+        raise ValueError(f"Failed to load pixel data: {e}")
 
+    red_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    green_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    blue_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw_r = ImageDraw.Draw(red_layer)
+    draw_g = ImageDraw.Draw(green_layer)
+    draw_b = ImageDraw.Draw(blue_layer)
 
-    output_mode = "RGBA" if alpha_enabled else "RGB"
-    bg_color_tuple = (0, 0, 0, 255) if alpha_enabled else BACKGROUND_COLOR # Opaque black for RGBA base
-    output_img = Image.new(output_mode, (width, height), bg_color_tuple)
-    
-    # Layer setup for RGBA compositing
-    red_layer, green_layer, blue_layer = None, None, None
-    draw_r_ctx, draw_g_ctx, draw_b_ctx = None, None, None
-    direct_draw_ctx = None
-
-    if alpha_enabled:
-        red_layer = Image.new("RGBA", (width, height), (0,0,0,0))
-        green_layer = Image.new("RGBA", (width, height), (0,0,0,0))
-        blue_layer = Image.new("RGBA", (width, height), (0,0,0,0))
-        draw_r_ctx = ImageDraw.Draw(red_layer)
-        draw_g_ctx = ImageDraw.Draw(green_layer)
-        draw_b_ctx = ImageDraw.Draw(blue_layer)
-    else:
-        direct_draw_ctx = ImageDraw.Draw(output_img)
-
-    for y_grid in range(0, height, grid_spacing):
-        for x_grid in range(0, width, grid_spacing):
-            x0, y0 = float(x_grid), float(y_grid) # Use float for calculations
-            x1 = min(x0 + grid_spacing, float(width))
-            y1 = min(y0 + grid_spacing, float(height))
+    for y in range(0, height, grid_spacing):
+        for x in range(0, width, grid_spacing):
+            x0, y0 = float(x), float(y)
+            x1, y1 = min(x0 + grid_spacing, float(width)), min(y0 + grid_spacing, float(height))
             if x0 >= x1 or y0 >= y1: continue
-
-            # Sample color for radius calculation (center of cell)
-            cx_sample = int(x0 + (x1 - x0) / 2.0)
-            cy_sample = int(y0 + (y1 - y0) / 2.0)
-            cx_sample = max(0, min(width - 1, cx_sample))
-            cy_sample = max(0, min(height - 1, cy_sample))
             
-            if original_pixels_np is not None:
-                r_center, g_center, b_center = original_pixels_np[cy_sample, cx_sample]
-            else: # Fallback to PIL load
-                r_center, g_center, b_center = original_pixels_pil[cx_sample, cy_sample][:3]
+            cx = int(x0 + (x1 - x0) / 2.0); cy = int(y0 + (y1 - y0) / 2.0)
+            cx = max(0, min(width - 1, cx)); cy = max(0, min(height - 1, cy))
+            try:
+                r_center, g_center, b_center = original_pixels[cx, cy]
+            except IndexError:
+                r_center, g_center, b_center = BACKGROUND_COLOR
 
+            r_radius = calculate_dot_radius(r_center, min_radius, max_radius, gamma)
+            g_radius = calculate_dot_radius(g_center, min_radius, max_radius, gamma)
+            b_radius = calculate_dot_radius(b_center, min_radius, max_radius, gamma)
 
-            r_rad = calculate_dot_radius(r_center, min_radius, max_radius, gamma)
-            g_rad = calculate_dot_radius(g_center, min_radius, max_radius, gamma)
-            b_rad = calculate_dot_radius(b_center, min_radius, max_radius, gamma)
-
-            # Dot positions
-            cell_center_x, cell_center_y = x0 + (x1-x0)/2.0, y0 + (y1-y0)/2.0
-            default_pos = np.array([cell_center_x, cell_center_y], dtype=float)
-            pos_r, pos_g, pos_b = default_pos.copy(), default_pos.copy(), default_pos.copy()
-
-            current_pixel_source = original_pixels_np if original_pixels_np is not None else original_pixels_pil
+            pos_r_base, pos_g_base, pos_b_base = (np.array([cx, cy]),)*3
 
             if subsample_enabled:
-                xm, ym = x0 + (x1-x0)/2.0, y0 + (y1-y0)/2.0
-                sub_boxes = {'tl': (x0,y0,xm,ym), 'tr': (xm,y0,x1,ym), 'bl': (x0,ym,xm,y1), 'br': (xm,ym,x1,y1)}
-                sub_centers = {
-                    'tl': (x0+(xm-x0)/2.0, y0+(ym-y0)/2.0), 'tr': (xm+(x1-xm)/2.0, y0+(ym-y0)/2.0),
-                    'bl': (x0+(xm-x0)/2.0, ym+(y1-ym)/2.0), 'br': (xm+(x1-xm)/2.0, ym+(y1-ym)/2.0)
-                }
+                xm, ym = x0 + (x1 - x0) / 2.0, y0 + (y1 - y0) / 2.0
+                sub_boxes = {'tl': (x0, y0, xm, ym), 'tr': (xm, y0, x1, ym), 'bl': (x0, ym, xm, y1), 'br': (xm, ym, x1, y1)}
+                sub_centers = { 'tl': (x0+(xm-x0)/2.0, y0+(ym-y0)/2.0), 'tr': (xm+(x1-xm)/2.0, y0+(ym-y0)/2.0), 'bl': (x0+(xm-x0)/2.0, ym+(y1-ym)/2.0), 'br': (xm+(x1-xm)/2.0, ym+(y1-ym)/2.0) }
                 sub_dom = {}
                 for name, box in sub_boxes.items():
-                    ar,ag,ab = get_average_color(current_pixel_source, width, height, box)
-                    if ar>=ag and ar>=ab and ar>0: sub_dom[name]='r'
-                    elif ag>ar and ag>=ab and ag>0: sub_dom[name]='g'
-                    elif ab>ar and ab>ag and ab>0: sub_dom[name]='b'
-                    else: sub_dom[name]=None
+                    ar, ag, ab = get_average_color(original_pixels, width, height, box)
+                    if ar >= ag and ar >= ab and ar > 0: sub_dom[name] = 'r'
+                    elif ag > ar and ag >= ab and ag > 0: sub_dom[name] = 'g'
+                    elif ab > ar and ab > ag and ab > 0: sub_dom[name] = 'b'
+                    else: sub_dom[name] = None
                 
                 assigned = set()
-                for name in ['tl','tr','bl','br']: 
-                    if sub_dom.get(name)=='r' and name not in assigned: pos_r=np.array(sub_centers[name]); assigned.add(name); break
-                for name in ['tl','tr','bl','br']: 
-                    if sub_dom.get(name)=='g' and name not in assigned: pos_g=np.array(sub_centers[name]); assigned.add(name); break
-                for name in ['tl','tr','bl','br']: 
-                    if sub_dom.get(name)=='b' and name not in assigned: pos_b=np.array(sub_centers[name]); assigned.add(name); break
+                for name in ['tl', 'tr', 'bl', 'br']:
+                    if sub_dom.get(name) == 'r' and name not in assigned: pos_r_base = np.array(sub_centers[name]); assigned.add(name); break
+                for name in ['tl', 'tr', 'bl', 'br']:
+                    if sub_dom.get(name) == 'g' and name not in assigned: pos_g_base = np.array(sub_centers[name]); assigned.add(name); break
+                for name in ['tl', 'tr', 'bl', 'br']:
+                    if sub_dom.get(name) == 'b' and name not in assigned: pos_b_base = np.array(sub_centers[name]); assigned.add(name); break
             else: # Triangle
-                v1,v2,v3 = np.array([x0,y0]), np.array([x1,y0]), np.array([x0,y1])
-                centroid = default_pos
-                dot_pos_list = [centroid + scale_factor*(v-centroid) for v in [v1,v2,v3]]
-                if len(dot_pos_list)==3: pos_r, pos_g, pos_b = dot_pos_list[0], dot_pos_list[1], dot_pos_list[2]
-
-            dot_instructions = [
-                {'pos': pos_r, 'radius': r_rad, 'color': (255,0,0,255), 'ctx': draw_r_ctx if alpha_enabled else direct_draw_ctx},
-                {'pos': pos_g, 'radius': g_rad, 'color': (0,255,0,255), 'ctx': draw_g_ctx if alpha_enabled else direct_draw_ctx},
-                {'pos': pos_b, 'radius': b_rad, 'color': (0,0,255,255), 'ctx': draw_b_ctx if alpha_enabled else direct_draw_ctx}
+                Centroid = np.array([cx, cy], dtype=float)
+                scaled_dots = [Centroid + scale_factor * (np.array(v) - Centroid) for v in [(x0,y0), (x1,y0), (x0,y1)]]
+                if len(scaled_dots) == 3:
+                    pos_r_base, pos_g_base, pos_b_base = scaled_dots
+            
+            dot_params = [
+                {'ctx': draw_r, 'pos': pos_r_base, 'rad': r_radius, 'color': (255, 0, 0, 255)},
+                {'ctx': draw_g, 'pos': pos_g_base, 'rad': g_radius, 'color': (0, 255, 0, 255)},
+                {'ctx': draw_b, 'pos': pos_b_base, 'rad': b_radius, 'color': (0, 0, 255, 255)},
             ]
-            for d in dot_instructions:
-                if d['radius'] > 0 and d['ctx']:
-                    r = max(0.5, d['radius']) # Ensure radius is not zero for drawing
-                    x, y = d['pos']
-                    # Use integers for bounding box, round radius for ellipse
-                    # Pillow's ellipse takes [x0, y0, x1, y1]
-                    bbox = [int(round(x-r)), int(round(y-r)), int(round(x+r)), int(round(y+r))]
-                    if bbox[0] < bbox[2] and bbox[1] < bbox[3]: # Valid bbox
-                         fill_c = d['color'] if alpha_enabled else d['color'][:3]
-                         d['ctx'].ellipse(bbox, fill=fill_c, outline=None)
-    
-    if alpha_enabled:
-        final_alpha_val = int(round((max(0.0, min(100.0, opacity_percent)) / 100.0) * 255))
-        for layer in [red_layer, green_layer, blue_layer]:
-            if layer:
-                alpha_ch = layer.getchannel('A')
-                new_alpha_ch = Image.eval(alpha_ch, lambda p: final_alpha_val if p > 0 else 0)
-                layer.putalpha(new_alpha_ch)
-        if red_layer: output_img = Image.alpha_composite(output_img, red_layer)
-        if green_layer: output_img = Image.alpha_composite(output_img, green_layer)
-        if blue_layer: output_img = Image.alpha_composite(output_img, blue_layer)
-    
-    return output_img
+            
+            for p in dot_params:
+                if p['rad'] > 0:
+                    r = max(1, int(math.ceil(p['rad'])))
+                    x_dot, y_dot = int(round(p['pos'][0])), int(round(p['pos'][1]))
+                    bbox = [x_dot - r, y_dot - r, x_dot + r, y_dot + r]
+                    if dot_shape == "circle": p['ctx'].ellipse(bbox, fill=p['color'])
+                    elif dot_shape == "square": p['ctx'].rectangle(bbox, fill=p['color'])
 
-# This is the function JavaScript will call
-def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_radius, max_dot_radius, 
-                       alpha_enabled, opacity_percent, subsample_enabled, gamma):
+    if alpha_enabled:
+        final_img = Image.new("RGBA", (width, height), (0, 0, 0, 255))
+        alpha_val = int(round((opacity_percent / 100.0) * 255))
+        for layer in [red_layer, green_layer, blue_layer]:
+            alpha_ch = layer.getchannel('A')
+            new_alpha = Image.eval(alpha_ch, lambda p: alpha_val if p > 0 else 0)
+            layer.putalpha(new_alpha)
+        final_img = Image.alpha_composite(final_img, red_layer)
+        final_img = Image.alpha_composite(final_img, green_layer)
+        final_img = Image.alpha_composite(final_img, blue_layer)
+    else:
+        final_img = Image.new("RGB", (width, height), BACKGROUND_COLOR)
+        final_img.paste(red_layer, mask=red_layer)
+        final_img.paste(green_layer, mask=green_layer)
+        final_img.paste(blue_layer, mask=blue_layer)
+    
+    return {
+        "final": final_img,
+        "layers": {"r": red_layer, "g": green_layer, "b": blue_layer}
+    }
+
+# CORRECTED Function Signature
+def run_filter_pyodide(image_bytes_proxy, params_proxy):
     js.console.log("Python: run_filter_pyodide called by JavaScript.")
     try:
-        img_bytes = image_bytes_proxy.to_py() # Uint8Array from JS to Python bytes
+        # Convert proxies to Python objects
+        img_bytes = image_bytes_proxy.to_py()
+        kwargs = params_proxy.to_py()
+        
         pil_image = Image.open(io.BytesIO(img_bytes))
         
-        # Ensure image is in a mode that apply_effect_logic expects (e.g., RGB or RGBA)
-        # apply_effect_logic itself handles further conversion if needed
-        if pil_image.mode == 'P': # Palette mode
-            pil_image = pil_image.convert('RGBA') 
-        elif pil_image.mode not in ('RGB', 'RGBA'):
-             pil_image = pil_image.convert('RGB')
+        result_dict = apply_effect_logic(pil_image, **kwargs)
+        
+        final_img_pil = result_dict["final"]
+        buffer = io.BytesIO()
+        final_img_pil.save(buffer, format="PNG")
+        final_img_bytes = buffer.getvalue()
 
+        # Return a dictionary proxy to JavaScript
+        return {"final_bytes": final_img_bytes, "layers": result_dict["layers"]}
 
-        processed_pil = apply_effect_logic(pil_image, grid_spacing, scale_factor, min_dot_radius, max_dot_radius,
-                                           alpha_enabled, opacity_percent, subsample_enabled, gamma)
-        if processed_pil:
-            buffer = io.BytesIO()
-            save_fmt = "PNG" # PNG supports alpha
-            processed_pil.save(buffer, format=save_fmt)
-            js.console.log(f"Python: Processing complete. Returning {save_fmt} bytes.")
-            return buffer.getvalue() # Return image as bytes
-        else:
-            js.console.error("Python: apply_effect_logic returned None.")
-            return None
     except Exception as e:
+        import traceback
         js.console.error(f"Python Error in run_filter_pyodide: {str(e)}")
-        # For more detailed Python tracebacks in browser console:
-        # import traceback
-        # js.console.error(traceback.format_exc())
+        js.console.error(traceback.format_exc())
         return None
-`
-        pythonCodeDisplayElement.textContent = pyodidePythonScript; // Set code for display
+
+def get_screen_layers_pyodide(layers_proxy):
+    js.console.log("Python: get_screen_layers_pyodide called.")
+    try:
+        layers_dict = layers_proxy
+        output_bytes = {}
+        channel_map = {'RED': ('r', 'R'), 'GREEN': ('g', 'G'), 'BLUE': ('b', 'B')}
+        
+        for name, (layer_key, channel_letter) in channel_map.items():
+            layer_to_save = layers_dict.get(layer_key)
+            if layer_to_save:
+                screen_plate = layer_to_save.getchannel(channel_letter)
+                inverted_plate = ImageOps.invert(screen_plate)
+                
+                buffer = io.BytesIO()
+                inverted_plate.save(buffer, format="PNG")
+                output_bytes[name] = buffer.getvalue()
+        
+        js.console.log(f"Python: Processed {len(output_bytes)} layers for saving.")
+        return output_bytes
+
+    except Exception as e:
+        import traceback
+        js.console.error(f"Python Error in get_screen_layers_pyodide: {str(e)}")
+        js.console.error(traceback.format_exc())
+        return None
+`;
+        // --- End of Python Code String ---
+
+        pythonCodeDisplayElement.textContent = pyodidePythonScript;
 
         async function main() {
             statusDiv.textContent = 'Pyodide: Loading runtime...';
@@ -576,11 +570,8 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
                 pyodide = await loadPyodide();
                 statusDiv.textContent = 'Pyodide: Runtime loaded. Loading packages (Pillow, NumPy)...';
                 await pyodide.loadPackage(['Pillow', 'numpy']);
+                pyodide.runPython(pyodidePythonScript);
                 statusDiv.textContent = 'Pyodide: Packages loaded. Ready to process.';
-
-
-                // Make Python function callable from JS
-                pyodide.runPython(pyodidePythonScript); // Define functions in Python global scope
             } catch (error) {
                 statusDiv.textContent = `Pyodide: Error - ${error}`;
                 console.error("Pyodide loading error:", error);
@@ -588,64 +579,28 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
         }
         main();
 
-        function panzoomWheelHandler(event) {
-            // Check if the event is on the imageContainer or its children (like the image itself)
-            if (panzoomInstance && imageContainer.contains(event.target)) {
-                event.preventDefault(); // Crucial to prevent page scroll
-                if (!event.shiftKey) {
-                    panzoomInstance.zoomWithWheel(event);
-                }
-            }
-        }
-
         function initializePanzoom() {
-            if (panzoomInstance) {
-                panzoomInstance.destroy();
-                panzoomInstance = null;
-            }
-            // Ensure displayImageEl is loaded and visible
+            if (panzoomInstance) { panzoomInstance.destroy(); panzoomInstance = null; }
             if (displayImageEl && displayImageEl.style.display !== 'none' && displayImageEl.src && !displayImageEl.src.endsWith('#') && displayImageEl.complete) {
-                panzoomInstance = Panzoom(displayImageEl, { // Target is still the <img>
-                    maxScale: 10,
-                    minScale: 0.1,
-                    contain: 'outside', // Keeps behavior similar to image_quantization if it used this
-                    canvas: true,
-                    step: 0.25,
-                    cursor: 'move',
-                    // Panzoom will automatically center the image if it's smaller than the viewport
-                    // No need for startX, startY usually if image is centered by CSS in its container
-                });
-
-                // Attach wheel listener to the new imageContainer
+                panzoomInstance = Panzoom(displayImageEl, { maxScale: 10, minScale: 0.1, contain: 'outside', canvas: true, step: 0.25, cursor: 'move' });
                 if (imageContainer) {
-                    imageContainer.removeEventListener('wheel', panzoomWheelHandler); // Remove old one first
+                    const panzoomWheelHandler = (event) => {
+                        if (panzoomInstance && imageContainer.contains(event.target)) {
+                            event.preventDefault();
+                            if (!event.shiftKey) panzoomInstance.zoomWithWheel(event);
+                        }
+                    };
+                    imageContainer.removeEventListener('wheel', panzoomWheelHandler);
                     imageContainer.addEventListener('wheel', panzoomWheelHandler);
                 }
-
-                // Reset to fit the image within the Panzoom viewport (displayImageEl)
-                // setTimeout helps ensure dimensions are fully updated in the DOM
-                setTimeout(() => {
-                    if (panzoomInstance) {
-                        panzoomInstance.reset();
-                    }
-                }, 100);
-            } else if (displayImageEl && displayImageEl.style.display !== 'none' && displayImageEl.src && !displayImageEl.src.endsWith('#') && !displayImageEl.complete) {
-                // If image src is set but image not yet loaded, wait for its onload event
+                setTimeout(() => { if (panzoomInstance) panzoomInstance.reset(); }, 100);
+            } else if (displayImageEl && displayImageEl.style.display !== 'none' && displayImageEl.src && !displayImageEl.src.endsWith('#')) {
                 displayImageEl.onload = initializePanzoom;
-            } else {
-                console.log("Panzoom: Image element not ready or src not valid for Panzoom initialization.");
-                if (imageContainer) { // If panzoom couldn't initialize, remove listener
-                    imageContainer.removeEventListener('wheel', panzoomWheelHandler);
-                }
             }
         }
 
         function syncInputs(slider, input, isFloat = false, displayElement = null, displaySuffix = '') {
-            slider.addEventListener('input', () => {
-                input.value = slider.value;
-                if (displayElement) displayElement.value = slider.value + displaySuffix;
-            });
-            input.addEventListener('change', () => {
+            const update = () => {
                 let val = isFloat ? parseFloat(input.value) : parseInt(input.value);
                 const min = isFloat ? parseFloat(slider.min) : parseInt(slider.min);
                 const max = isFloat ? parseFloat(slider.max) : parseInt(slider.max);
@@ -654,8 +609,10 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
                 input.value = val;
                 slider.value = val;
                 if (displayElement) displayElement.value = val + displaySuffix;
-            });
-            input.value = slider.value; // Initialize
+            };
+            slider.addEventListener('input', () => { input.value = slider.value; if (displayElement) displayElement.value = slider.value + displaySuffix; });
+            input.addEventListener('change', update);
+            input.value = slider.value;
             if (displayElement) displayElement.value = slider.value + displaySuffix;
         }
 
@@ -665,12 +622,10 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
         syncInputs(gammaSlider, gammaInput, true);
         syncInputs(opacitySlider, opacityInput, false, opacityInput, '%');
 
-
         alphaCheckbox.addEventListener('change', () => {
             opacityControls.style.display = alphaCheckbox.checked ? 'flex' : 'none';
         });
-        opacityControls.style.display = alphaCheckbox.checked ? 'flex' : 'none'; // Initial check
-
+        opacityControls.style.display = alphaCheckbox.checked ? 'flex' : 'none';
 
         openButton.addEventListener('click', () => imageUploadInput.click());
 
@@ -678,81 +633,55 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
             const file = event.target.files[0];
             if (file) {
                 const readerBytes = new FileReader();
-                readerBytes.onload = (e_bytes) => {
-                    originalImageBytes = new Uint8Array(e_bytes.target.result);
-                    console.log("Image read as ArrayBuffer for Pyodide.");
-                };
-                readerBytes.onerror = (e) => { statusDiv.textContent = "Error reading file for processing."; console.error("FileReadError (ArrayBuffer):", e); };
+                readerBytes.onload = (e) => originalImageBytes = new Uint8Array(e.target.result);
                 readerBytes.readAsArrayBuffer(file);
 
                 const displayReader = new FileReader();
-                displayReader.onload = (e_display) => {
-                    if (displayImageEl.src && displayImageEl.src.startsWith('blob:')) {
-                        URL.revokeObjectURL(displayImageEl.src);
-                    }
-                    displayImageEl.src = e_display.target.result;
+                displayReader.onload = (e) => {
+                    if (displayImageEl.src?.startsWith('blob:')) URL.revokeObjectURL(displayImageEl.src);
+                    displayImageEl.src = e.target.result;
                     displayImageEl.style.display = 'block';
-                    // Initialize Panzoom once the image is loaded into the src attribute
-                    displayImageEl.onload = () => { initializePanzoom(); };
-                    // If image is already complete (e.g. from cache), initialize immediately
-                    if (displayImageEl.complete) { initializePanzoom(); }
+                    initializePanzoom();
                 };
-                displayReader.onerror = (e) => { statusDiv.textContent = "Error displaying image preview."; console.error("FileReadError (DataURL):", e); };
                 displayReader.readAsDataURL(file);
-
-                currentProcessedBlob = null;
+                currentProcessedResultProxy = null;
             }
         });
 
         processButton.addEventListener('click', async () => {
-            if (!pyodide || !originalImageBytes) {
-                alert("Please load Pyodide and an image first.");
-                return;
-            }
+            if (!pyodide || !originalImageBytes) { alert("Please load Pyodide and an image first."); return; }
             statusDiv.textContent = 'Pyodide: Processing image...';
             processButton.disabled = true;
             try {
                 const params = {
                     grid_spacing: parseInt(gridSpacingInput.value),
                     scale_factor: parseFloat(scaleFactorInput.value),
-                    min_dot_radius: DEFAULT_MIN_DOT_RADIUS,
-                    max_dot_radius: parseInt(maxDotRadiusInput.value),
+                    min_radius: DEFAULT_MIN_DOT_RADIUS,
+                    max_radius: parseInt(maxDotRadiusInput.value),
                     alpha_enabled: alphaCheckbox.checked,
-                    opacity_percent: parseFloat(opacitySlider.value), // Use slider value for opacity
+                    opacity_percent: parseFloat(opacitySlider.value),
                     subsample_enabled: subsampleCheckbox.checked,
-                    gamma: parseFloat(gammaInput.value)
+                    gamma: parseFloat(gammaInput.value),
+                    dot_shape: dotShapeSelect.value
                 };
 
-                // Ensure the Python function is available
-                if (typeof pyodide.globals.get('run_filter_pyodide') !== 'function') {
-                    // If not defined, re-run the script part that defines it.
-                    // This can happen if the page reloads or pyodide state is lost.
-                    pyodide.runPython(pyodidePythonScript.substring(0, pyodidePythonScript.indexOf("def run_filter_pyodide") + "def run_filter_pyodide".length + pyodidePythonScript.substring(pyodidePythonScript.indexOf("def run_filter_pyodide")).indexOf("):") + 2) + pyodidePythonScript.substring(pyodidePythonScript.indexOf("def run_filter_pyodide")));
+                // Pass the JS object to Python, letting pyodide handle conversion
+                const resultProxy = await pyodide.globals.get('run_filter_pyodide')(originalImageBytes, params);
 
-                    // Simpler re-run the whole script definitions if needed.
-                    // pyodide.runPython(pyodidePythonScript);
-                }
+                if (resultProxy) {
+                    currentProcessedResultProxy = resultProxy; // Save the whole proxy
+                    const finalBytesPy = currentProcessedResultProxy.get("final_bytes");
+                    const uint8Array = finalBytesPy.toJs({ transfer: true });
+                    const blob = new Blob([uint8Array], { type: 'image/png' });
 
-
-                let resultBytesPyProxy = await pyodide.globals.get('run_filter_pyodide')(
-                    originalImageBytes,
-                    params.grid_spacing, params.scale_factor, params.min_dot_radius, params.max_dot_radius,
-                    params.alpha_enabled, params.opacity_percent, params.subsample_enabled, params.gamma
-                );
-
-                if (resultBytesPyProxy) {
-                    const uint8Array = resultBytesPyProxy.toJs(); // Transfer ownership if proxy supports it
-                    currentProcessedBlob = new Blob([uint8Array], { type: 'image/png' });
-
-                    if (displayImageEl.src.startsWith('blob:')) { URL.revokeObjectURL(displayImageEl.src); }
-                    displayImageEl.src = URL.createObjectURL(currentProcessedBlob);
+                    if (displayImageEl.src.startsWith('blob:')) URL.revokeObjectURL(displayImageEl.src);
+                    displayImageEl.src = URL.createObjectURL(blob);
                     statusDiv.textContent = 'Pyodide: Processing complete!';
-                    // resultBytesPyProxy.destroy(); // Destroy proxy if not transferred
                 } else {
-                    statusDiv.textContent = 'Pyodide: Processing failed or no image returned. Check console.';
+                    statusDiv.textContent = 'Pyodide: Processing failed. Check console.';
                 }
             } catch (error) {
-                statusDiv.textContent = `Pyodide: Error processing - ${error}`;
+                statusDiv.textContent = `Pyodide: Error - ${error}`;
                 console.error("JS error during processing:", error);
             } finally {
                 processButton.disabled = false;
@@ -760,17 +689,54 @@ def run_filter_pyodide(image_bytes_proxy, grid_spacing, scale_factor, min_dot_ra
         });
 
         saveButton.addEventListener('click', () => {
-            if (currentProcessedBlob) {
+            if (currentProcessedResultProxy) {
+                const finalBytesPy = currentProcessedResultProxy.get("final_bytes");
+                // Use .toJs() to get a copy of the data as a JS Uint8Array
+                const blob = new Blob([finalBytesPy.toJs()], { type: 'image/png' });
+
                 const link = document.createElement('a');
-                link.href = URL.createObjectURL(currentProcessedBlob);
+                link.href = URL.createObjectURL(blob);
                 const alphaStr = alphaCheckbox.checked ? `_alpha${opacitySlider.value}` : "";
-                link.download = `rgb_dots_g${gridSpacingInput.value}_s${scaleFactorInput.value}_r${maxDotRadiusInput.value}${alphaStr}.png`;
+                link.download = `rgb_dots_g${gridSpacingInput.value}_s${scaleFactorInput.value}_r${maxDotRadiusInput.value}${alphaStr}_${dotShapeSelect.value}.png`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(link.href);
             } else {
                 alert("No processed image to save.");
+            }
+        });
+
+        saveLayersButton.addEventListener('click', async () => {
+            if (!currentProcessedResultProxy) { alert("No processed layers to save. Please process an image first."); return; }
+            statusDiv.textContent = 'Pyodide: Generating screen layers...';
+            saveLayersButton.disabled = true;
+            try {
+                const layersProxy = currentProcessedResultProxy.get("layers");
+                const resultBytesProxy = await pyodide.globals.get('get_screen_layers_pyodide')(layersProxy);
+
+                if (resultBytesProxy) {
+                    const resultBytesDict = resultBytesProxy.toJs();
+                    const baseName = `layers_g${gridSpacingInput.value}_s${scaleFactorInput.value}`;
+
+                    for (const [name, bytes] of resultBytesDict.entries()) {
+                        const blob = new Blob([bytes], { type: 'image/png' });
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `${baseName}_${name}.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(link.href);
+                    }
+                    resultBytesProxy.destroy();
+                    statusDiv.textContent = 'Screen layers saved.';
+                }
+            } catch (e) {
+                statusDiv.textContent = `Error saving layers: ${e}`;
+                console.error("Error saving layers:", e);
+            } finally {
+                saveLayersButton.disabled = false;
             }
         });
 
